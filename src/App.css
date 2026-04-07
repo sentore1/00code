@@ -1,0 +1,287 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Light Theme */
+.light {
+  background: #f5f5f5;
+  color: #1a1a1a;
+  min-height: 100vh;
+}
+
+.light .app-container {
+  background: #ffffff;
+}
+
+.light .app-header {
+  background: #ffffff;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.light .theme-toggle {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.light .theme-toggle:hover {
+  background: #333333;
+}
+
+.light .mode-switch button {
+  background: #f0f0f0;
+  color: #1a1a1a;
+  border: 2px solid #e0e0e0;
+}
+
+.light .mode-switch button.active {
+  background: #1a1a1a;
+  color: #ffffff;
+  border-color: #1a1a1a;
+}
+
+.light textarea,
+.light .decoded-output {
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 2px solid #e0e0e0;
+}
+
+.light textarea:focus {
+  border-color: #1a1a1a;
+}
+
+.light .upload-btn,
+.light .download-btn {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.light .upload-btn:hover,
+.light .download-btn:hover {
+  background: #333333;
+}
+
+.light .char-count {
+  color: #666666;
+}
+
+/* Dark Theme */
+.dark {
+  background: #0a0a0a;
+  color: #ffffff;
+  min-height: 100vh;
+}
+
+.dark .app-container {
+  background: #1a1a1a;
+}
+
+.dark .app-header {
+  background: #1a1a1a;
+  border-bottom: 2px solid #333333;
+}
+
+.dark .theme-toggle {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.dark .theme-toggle:hover {
+  background: #e0e0e0;
+}
+
+.dark .mode-switch button {
+  background: #2a2a2a;
+  color: #ffffff;
+  border: 2px solid #333333;
+}
+
+.dark .mode-switch button.active {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-color: #ffffff;
+}
+
+.dark textarea,
+.dark .decoded-output {
+  background: #2a2a2a;
+  color: #ffffff;
+  border: 2px solid #333333;
+}
+
+.dark textarea:focus {
+  border-color: #ffffff;
+}
+
+.dark .upload-btn,
+.dark .download-btn {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
+.dark .upload-btn:hover,
+.dark .download-btn:hover {
+  background: #e0e0e0;
+}
+
+.dark .char-count {
+  color: #999999;
+}
+
+/* Layout */
+.app-container {
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+}
+
+.app-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.theme-toggle {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.encoder-container {
+  padding: 30px;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.mode-switch button {
+  flex: 1;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Encode Section */
+.encode-section textarea {
+  width: 100%;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.char-count {
+  text-align: right;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.canvas-wrapper {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.canvas-wrapper canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.download-btn {
+  margin-top: 20px;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Decode Section */
+.decode-section {
+  text-align: center;
+}
+
+.upload-btn {
+  padding: 16px 40px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.decoded-output {
+  margin-top: 30px;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.decoded-output h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.decoded-output pre {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .app-header {
+    padding: 16px 20px;
+  }
+  
+  .app-header h1 {
+    font-size: 24px;
+  }
+  
+  .encoder-container {
+    padding: 20px;
+  }
+  
+  .mode-switch {
+    flex-direction: column;
+  }
+}
