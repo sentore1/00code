@@ -28,14 +28,7 @@
         "CAMERA"
       ]
     },
-    "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow ShotCode Scanner to access your camera to scan codes."
-        }
-      ]
-    ],
+    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "09aa9984-0f5e-40c6-9d2d-5c7999222329"
