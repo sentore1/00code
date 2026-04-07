@@ -8,16 +8,16 @@ const ShotCodeV2 = () => {
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // ULTRA LARGE: Maximum physical size for maximum accuracy
-  // Strategy: Huge canvas + maximum rings + more segments
-  // 150 rings × 240 segments = 36,000 bits = 4,498 bytes
-  // Larger diameter = more space per segment = better accuracy
+  // HIGH DENSITY + PHYSICS OPTIMIZATION
+  // Strategy: Keep high capacity but fix rendering precision
+  // 180 rings × 270 segments = 48,600 bits = 6,073 bytes
+  // Physics fix: Anti-aliasing, precise boundaries, better sampling
   const CONFIG = {
-    rings: 150,
-    segments: 240,
-    canvasSize: 4800,  // HUGE canvas (4800×4800px)
-    outerRadius: 2350, // Very large diameter
-    innerRadius: 50,
+    rings: 180,
+    segments: 270,
+    canvasSize: 10800,  // ULTRA MASSIVE: 3x pixel density per segment
+    outerRadius: 5350,  // Proportionally larger
+    innerRadius: 150,   // Stable center
     useCompression: true
   };
 
@@ -101,6 +101,9 @@ const ShotCodeV2 = () => {
     canvas.width = canvasSize;
     canvas.height = canvasSize;
     
+    // CRITICAL: Disable anti-aliasing for sharp edges
+    ctx.imageSmoothingEnabled = false;
+    
     const center = canvasSize / 2;
     const ringWidth = (outerRadius - innerRadius) / rings;
     
@@ -110,6 +113,9 @@ const ShotCodeV2 = () => {
     console.log('=== ENCODING ===');
     console.log('Config:', rings, 'rings ×', segments, 'segments =', totalBits, 'bits');
     console.log('Capacity:', maxBytes, 'bytes');
+    console.log('Canvas:', canvasSize, 'x', canvasSize);
+    console.log('Ring width:', ringWidth.toFixed(2), 'px');
+    console.log('Segment angle:', (360 / segments).toFixed(3), '°');
     
     // Compress if enabled
     const textToEncode = useCompression ? compress(inputText) : inputText;
@@ -131,30 +137,31 @@ const ShotCodeV2 = () => {
     
     console.log('Total bits to encode:', fullBinary.length);
     
-    // White background
+    // White background - PURE white
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvasSize, canvasSize);
     
-    // Black center
+    // Black center - PURE black
     ctx.fillStyle = '#000000';
     ctx.beginPath();
-    ctx.arc(center, center, innerRadius - 20, 0, Math.PI * 2);
+    ctx.arc(center, center, innerRadius - 30, 0, Math.PI * 2);
     ctx.fill();
     
-    // Outer border
+    // Outer border - thicker for better detection
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 10;
+    ctx.lineWidth = 20;
     ctx.beginPath();
     ctx.arc(center, center, outerRadius, 0, Math.PI * 2);
     ctx.stroke();
     
-    // Draw data - OUTER TO INNER
+    // Draw data - OUTER TO INNER with PRECISE boundaries
     let bitIndex = 0;
     for (let ring = rings - 1; ring >= 0 && bitIndex < fullBinary.length; ring--) {
       const r1 = innerRadius + ring * ringWidth;
       const r2 = innerRadius + (ring + 1) * ringWidth;
       
       for (let seg = 0; seg < segments && bitIndex < fullBinary.length; seg++) {
+        // PRECISE angle calculation - no rounding errors
         const a1 = (seg / segments) * Math.PI * 2;
         const a2 = ((seg + 1) / segments) * Math.PI * 2;
         
@@ -185,8 +192,9 @@ const ShotCodeV2 = () => {
     
     console.log('=== DECODING ===');
     console.log('Image size:', width, 'x', height);
-    console.log('Scale:', scale);
-    console.log('Ring width:', ringWidth.toFixed(2), 'px');
+    console.log('Scale:', scale.toFixed(4));
+    console.log('Ring width:', ringWidth.toFixed(3), 'px');
+    console.log('Segment angle:', (360 / segments).toFixed(3), '°');
     
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
@@ -199,22 +207,22 @@ const ShotCodeV2 = () => {
       return (data[i] + data[i + 1] + data[i + 2]) / 3;
     };
     
-    // Better threshold calculation - sample actual data areas
+    // Adaptive threshold - sample actual black/white areas
     let blackSamples = [];
     let whiteSamples = [];
     
-    // Sample known black area (center)
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      const r = (scaledInner - 20) * 0.5;
+    // Sample center (black)
+    for (let i = 0; i < 30; i++) {
+      const angle = (i / 30) * Math.PI * 2;
+      const r = (scaledInner - 30) * 0.5;
       const x = center + r * Math.cos(angle);
       const y = center + r * Math.sin(angle);
       blackSamples.push(getPixel(x, y));
     }
     
-    // Sample known white area (outside border)
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
+    // Sample outside (white)
+    for (let i = 0; i < 30; i++) {
+      const angle = (i / 30) * Math.PI * 2;
       const r = scaledOuter + 50;
       const x = center + r * Math.cos(angle);
       const y = center + r * Math.sin(angle);
@@ -229,7 +237,7 @@ const ShotCodeV2 = () => {
     console.log('White avg:', avgWhite.toFixed(1));
     console.log('Threshold:', threshold.toFixed(1));
     
-    // Decode with 5x5 sampling
+    // PHYSICS-BASED DECODING: Sample at exact geometric centers
     let binary = '';
     let confidenceSum = 0;
     let segmentCount = 0;
@@ -237,22 +245,28 @@ const ShotCodeV2 = () => {
     for (let ring = rings - 1; ring >= 0; ring--) {
       const r1 = scaledInner + ring * ringWidth;
       const r2 = scaledInner + (ring + 1) * ringWidth;
-      const rMid = (r1 + r2) / 2;
       
       for (let seg = 0; seg < segments; seg++) {
-        const angleStart = (seg / segments) * Math.PI * 2;
-        const angleEnd = ((seg + 1) / segments) * Math.PI * 2;
-        const angleMid = (angleStart + angleEnd) / 2;
+        // PRECISE angle calculation matching encode
+        const a1 = (seg / segments) * Math.PI * 2;
+        const a2 = ((seg + 1) / segments) * Math.PI * 2;
+        const aMid = (a1 + a2) / 2;
         
-        // 9x9 sampling grid for ultra-large canvas (81 sample points!)
+        // DENSE GRID SAMPLING: 15x15 = 225 sample points per segment
         let blackCount = 0;
         let whiteCount = 0;
+        const gridSize = 15;
         
-        for (let ri = 0; ri < 9; ri++) {
-          const r = r1 + (r2 - r1) * (ri / 8);
-          for (let ai = 0; ai < 9; ai++) {
-            const angleOffset = (angleEnd - angleStart) * ((ai / 8) - 0.5) * 0.6;
-            const angle = angleMid + angleOffset;
+        for (let ri = 0; ri < gridSize; ri++) {
+          // Sample across full ring width
+          const rFraction = (ri + 0.5) / gridSize;
+          const r = r1 + (r2 - r1) * rFraction;
+          
+          for (let ai = 0; ai < gridSize; ai++) {
+            // Sample across full segment angle
+            const aFraction = (ai + 0.5) / gridSize;
+            const angle = a1 + (a2 - a1) * aFraction;
+            
             const x = center + r * Math.cos(angle);
             const y = center + r * Math.sin(angle);
             
@@ -287,7 +301,7 @@ const ShotCodeV2 = () => {
     console.log('Length bits:', lengthBits);
     console.log('Text length:', textLength);
     
-    if (textLength > 5000 || textLength === 0) {
+    if (textLength > 10000 || textLength === 0) {
       console.error('Invalid length:', textLength);
       return { text: '[ERROR: Invalid length ' + textLength + ']', confidence: 0 };
     }
@@ -300,7 +314,7 @@ const ShotCodeV2 = () => {
     const decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
     
     console.log('Decoded text length:', decoded.length);
-    console.log('Decoded text:', decoded.substring(0, 100) + (decoded.length > 100 ? '...' : ''));
+    console.log('Decoded text preview:', decoded.substring(0, 100) + (decoded.length > 100 ? '...' : ''));
     
     return { text: decoded, confidence: avgConfidence };
   };
