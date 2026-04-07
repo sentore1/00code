@@ -1,0 +1,74 @@
+========================================
+SHOTCODE SCANNER - QUICK BUILD GUIDE
+========================================
+
+✅ Dependencies installed
+✅ EAS CLI installed
+
+NEXT STEPS:
+-----------
+
+1. CREATE EXPO ACCOUNT (if you don't have one)
+   Go to: https://expo.dev
+   Sign up for FREE
+
+2. LOGIN TO EAS
+   Run this command:
+   
+   eas login
+   
+   Enter your Expo username and password
+
+3. BUILD THE APK
+   Run this command:
+   
+   eas build --platform android --profile preview
+   
+   This will:
+   - Upload your code to Expo servers
+   - Build the APK in the cloud (takes 10-20 minutes)
+   - Give you a download link
+
+4. DOWNLOAD & INSTALL
+   - Click the download link
+   - Transfer APK to your Android phone
+   - Install it (allow "Unknown Sources" if needed)
+
+COMMANDS SUMMARY:
+-----------------
+
+# Login to Expo
+eas login
+
+# Build Android APK
+eas build --platform android --profile preview
+
+# Check build status
+eas build:list
+
+# Test locally first (optional)
+npm start
+(Then scan QR with Expo Go app)
+
+TROUBLESHOOTING:
+----------------
+
+If "eas: command not found":
+  npm install -g eas-cli
+
+If build fails:
+  eas logout
+  eas login
+  (try again)
+
+If you want to test before building:
+  npm start
+  (Install Expo Go app on phone and scan QR)
+
+COST: FREE
+----------
+- Expo account: FREE
+- EAS builds: FREE (limited per month)
+- APK distribution: FREE
+
+Need help? Check BUILD_INSTRUCTIONS.md for detailed guide.

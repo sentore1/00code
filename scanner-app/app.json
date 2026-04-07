@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "ShotCode Scanner",
+    "slug": "shotcode-scanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#3b82f6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.shotcode.scanner",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to scan ShotCodes"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#3b82f6"
+      },
+      "package": "com.shotcode.scanner",
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ShotCode Scanner to access your camera to scan codes."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "09aa9984-0f5e-40c6-9d2d-5c7999222329"
+      }
+    }
+  }
+}
