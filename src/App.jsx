@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import ShotCodeV2 from './ShotCodeV2';
 import ShotCodeScanner from './ShotCodeScanner';
+import AdaptiveShotCode from './AdaptiveShotCode';
+import ImigogoShapeCode from './ImigogoShapeCode';
 import './App.css';
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
-  const [mode, setMode] = useState('encode'); // 'encode' or 'scan'
+  const [mode, setMode] = useState('imigongo'); // 'encode', 'scan', 'adaptive', or 'imigongo'
 
   return (
     <div className={darkMode ? 'dark' : 'light'}>
@@ -13,6 +15,34 @@ function App() {
         <header className="app-header">
           <h1>ShotCode</h1>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              onClick={() => setMode('imigongo')}
+              style={{
+                padding: '8px 16px',
+                background: mode === 'imigongo' ? '#8B4513' : 'transparent',
+                color: mode === 'imigongo' ? 'white' : '#999',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Imigongo
+            </button>
+            <button
+              onClick={() => setMode('adaptive')}
+              style={{
+                padding: '8px 16px',
+                background: mode === 'adaptive' ? '#3b82f6' : 'transparent',
+                color: mode === 'adaptive' ? 'white' : '#999',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Adaptive
+            </button>
             <button
               onClick={() => setMode('encode')}
               style={{
@@ -25,7 +55,7 @@ function App() {
                 fontSize: '14px'
               }}
             >
-              Encode
+              Circular
             </button>
             <button
               onClick={() => setMode('scan')}
@@ -50,7 +80,7 @@ function App() {
             </button>
           </div>
         </header>
-        {mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
+        {mode === 'imigongo' ? <ImigogoShapeCode /> : mode === 'adaptive' ? <AdaptiveShotCode /> : mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
       </div>
     </div>
   );

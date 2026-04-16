@@ -1,12 +1,20 @@
 // ShotCodeV2 - Version 2.0 - Fresh reload
 import React, { useState, useRef } from 'react';
 
-const ShotCodeV2 = () => {
-  const [inputText, setInputText] = useState('');
+const ShotCodeV2 = ({ initialText = '' }) => {
+  const [inputText, setInputText] = useState(initialText);
   const [decodedText, setDecodedText] = useState('');
   const [confidence, setConfidence] = useState(0);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Update when initialText prop changes
+  React.useEffect(() => {
+    if (initialText) {
+      setInputText(initialText);
+      setTimeout(() => encode(), 50);
+    }
+  }, [initialText]);
 
   // PHILOSOPHER'S APPROACH: Error correction + redundancy
   // Truth: Perfect encoding is impossible, but recoverable encoding is
