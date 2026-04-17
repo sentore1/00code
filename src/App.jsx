@@ -4,18 +4,33 @@ import ShotCodeScanner from './ShotCodeScanner';
 import AdaptiveShotCode from './AdaptiveShotCode';
 import ImigogoShapeCode from './ImigogoShapeCode';
 import DualLayerCode from './DualLayerCode';
+import DynamicMorphingCode from './DynamicMorphingCode';
 import './App.css';
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
-  const [mode, setMode] = useState('dual'); // 'encode', 'scan', 'adaptive', 'imigongo', or 'dual'
+  const [mode, setMode] = useState('morphing'); // 'encode', 'scan', 'adaptive', 'imigongo', 'dual', or 'morphing'
 
   return (
     <div className={darkMode ? 'dark' : 'light'}>
       <div className="app-container">
         <header className="app-header">
           <h1>ShotCode</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setMode('morphing')}
+              style={{
+                padding: '8px 16px',
+                background: mode === 'morphing' ? '#10b981' : 'transparent',
+                color: mode === 'morphing' ? 'white' : '#999',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Morphing
+            </button>
             <button
               onClick={() => setMode('dual')}
               style={{
@@ -95,7 +110,7 @@ function App() {
             </button>
           </div>
         </header>
-        {mode === 'dual' ? <DualLayerCode /> : mode === 'imigongo' ? <ImigogoShapeCode /> : mode === 'adaptive' ? <AdaptiveShotCode /> : mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
+        {mode === 'morphing' ? <DynamicMorphingCode /> : mode === 'dual' ? <DualLayerCode /> : mode === 'imigongo' ? <ImigogoShapeCode /> : mode === 'adaptive' ? <AdaptiveShotCode /> : mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
       </div>
     </div>
   );
