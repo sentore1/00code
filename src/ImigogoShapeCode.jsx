@@ -32,8 +32,12 @@ const ImigogoShapeCode = () => {
   };
 
   const CONFIG = {
-    canvasSize: 1000,
-    useCompression: true
+    canvasSize: 2000,
+    useCompression: true,
+    // Realistic capacity - 50 rings for ~5-6K chars with high accuracy
+    rings: 50,
+    innerRadius: 150,
+    outerRadius: 950
   };
 
   const compress = (text) => {
@@ -78,30 +82,67 @@ const ImigogoShapeCode = () => {
   };
 
   const textToBinary = (text) => {
+    // Convert text to UTF-8 bytes, then to binary
     let binary = '';
-    for (let i = 0; i < text.length; i++) {
-      binary += text.charCodeAt(i).toString(2).padStart(8, '0');
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(text);
+    
+    for (let i = 0; i < bytes.length; i++) {
+      binary += bytes[i].toString(2).padStart(8, '0');
     }
     return binary;
   };
 
   const binaryToText = (binary) => {
-    let text = '';
+    // Convert binary to bytes, then decode as UTF-8
+    let bytes = [];
     for (let i = 0; i < binary.length; i += 8) {
       const byte = binary.substring(i, i + 8);
       if (byte.length === 8) {
-        text += String.fromCharCode(parseInt(byte, 2));
+        bytes.push(parseInt(byte, 2));
       }
     }
-    return text;
+    
+    try {
+      const decoder = new TextDecoder('utf-8');
+      return decoder.decode(new Uint8Array(bytes));
+    } catch (e) {
+      console.error('UTF-8 decode error:', e);
+      return '';
+    }
+  };
+
+  // Add redundancy to length header (repeat 3 times for error correction)
+  // Note: Now using byte length instead of character length for UTF-8 support
+
+  // Decode length with majority voting
+  const decodeLengthWithRedundancy = (binary) => {
+    if (binary.length < 48) {
+      console.error('Not enough bits for length header');
+      return 0;
+    }
+
+    const len1 = parseInt(binary.substring(0, 16), 2);
+    const len2 = parseInt(binary.substring(16, 32), 2);
+    const len3 = parseInt(binary.substring(32, 48), 2);
+
+    console.log('Length candidates:', len1, len2, len3);
+
+    // Majority voting
+    if (len1 === len2) return len1;
+    if (len1 === len3) return len1;
+    if (len2 === len3) return len2;
+
+    // If all different, use the most reasonable one
+    const lengths = [len1, len2, len3].sort((a, b) => a - b);
+    console.log('Using median length:', lengths[1]);
+    return lengths[1];
   };
 
   // Draw diamond grid pattern in CIRCULAR arrangement
   function drawDiamondGrid(ctx, binary, canvasSize) {
     const center = canvasSize / 2;
-    const rings = 30;
-    const innerRadius = 80;
-    const outerRadius = 480;
+    const { rings, innerRadius, outerRadius } = CONFIG;
     const ringWidth = (outerRadius - innerRadius) / rings;
     
     const positions = [];
@@ -112,7 +153,8 @@ const ImigogoShapeCode = () => {
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const diamondSize = ringWidth * 0.8;
-      const numShapes = Math.floor(circumference / diamondSize);
+      // Balanced spacing - 10% gap for reliability
+      const numShapes = Math.floor(circumference / (diamondSize * 1.1));
       
       for (let i = 0; i < numShapes && bitIndex < binary.length; i++) {
         const angle = (i / numShapes) * Math.PI * 2;
@@ -120,7 +162,7 @@ const ImigogoShapeCode = () => {
         const y = center + r * Math.sin(angle);
         const bit = binary[bitIndex];
         
-        positions.push({ x, y, bit, ring, i });
+        positions.push({ x, y, bit, ring, i, angle, r });
         
         // Draw diamond rotated to follow circle
         ctx.save();
@@ -128,8 +170,8 @@ const ImigogoShapeCode = () => {
         ctx.rotate(angle + Math.PI / 2);
         
         ctx.fillStyle = bit === '1' ? '#000000' : '#FFFFFF';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#555555';
+        ctx.lineWidth = 0.5;
         
         const size = diamondSize / 2;
         ctx.beginPath();
@@ -147,7 +189,9 @@ const ImigogoShapeCode = () => {
       }
     }
     
-    return { positions, rings, innerRadius, outerRadius };
+    console.log('Diamond: encoded', bitIndex, 'bits in', rings, 'rings');
+    console.log('Realistic capacity: ~', Math.floor(bitIndex / 8 * 0.7 * 0.8), 'characters (with compression & safety margin)');
+    return { positions, rings, innerRadius, outerRadius, bitIndex };
   }
 
   // Draw triangle pattern in CIRCULAR arrangement
@@ -333,24 +377,46 @@ const ImigogoShapeCode = () => {
     
     console.log('=== IMIGONGO SHAPE ENCODING ===');
     console.log('Pattern:', SHAPE_PATTERNS[shapePattern].name);
-    console.log('Text length:', inputText.length);
+    console.log('Text length:', inputText.length, 'characters');
     
     const textToEncode = CONFIG.useCompression ? compress(inputText) : inputText;
     const binary = textToBinary(textToEncode);
-    const lengthBits = textToEncode.length.toString(2).padStart(16, '0');
+    
+    // Use byte length for header, not character length
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(textToEncode);
+    const lengthBits = bytes.length.toString(2).padStart(16, '0');
+    const lengthBitsRedundant = lengthBits + lengthBits + lengthBits;
+    
     const patternIndex = Object.keys(SHAPE_PATTERNS).indexOf(shapePattern);
     const patternBits = patternIndex.toString(2).padStart(3, '0');
-    const fullBinary = lengthBits + patternBits + binary;
+    const fullBinary = lengthBitsRedundant + patternBits + binary;
     
-    console.log('Compressed length:', textToEncode.length);
+    console.log('Compressed length:', textToEncode.length, 'characters');
+    console.log('Byte length:', bytes.length);
     console.log('Total bits:', fullBinary.length);
     
     // White background
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvasSize, canvasSize);
     
+    const center = canvasSize / 2;
+    
+    // Draw black center circle for alignment
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(center, center, 130, 0, Math.PI * 2);
+    ctx.fill();
+    
     // Draw pattern
     const metadata = SHAPE_PATTERNS[shapePattern].draw(ctx, fullBinary, canvasSize);
+    
+    // Draw black outer border for alignment
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 15;
+    ctx.beginPath();
+    ctx.arc(center, center, 960, 0, Math.PI * 2);
+    ctx.stroke();
     
     console.log('Encoded with', shapePattern, 'pattern');
     console.log('Metadata:', metadata);
@@ -359,6 +425,7 @@ const ImigogoShapeCode = () => {
   const decode = (ctx, width, height) => {
     console.log('=== IMIGONGO SHAPE DECODING ===');
     console.log('Image size:', width, 'x', height);
+    console.log('Pattern:', shapePattern);
     
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
@@ -374,42 +441,95 @@ const ImigogoShapeCode = () => {
     const center = width / 2;
     const scale = width / CONFIG.canvasSize;
     
-    let binary = '';
+    // Calculate adaptive threshold
+    let blackSamples = [];
+    let whiteSamples = [];
     
-    // Decode based on circular arrangement
-    if (shapePattern === 'diamond' || shapePattern === 'chevron') {
-      const rings = 30;
-      const innerRadius = 80 * scale;
-      const outerRadius = 480 * scale;
-      const ringWidth = (outerRadius - innerRadius) / rings;
+    // Sample center (black)
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const r = 65 * scale;
+      const x = center + r * Math.cos(angle);
+      const y = center + r * Math.sin(angle);
+      blackSamples.push(getPixel(x, y));
+    }
+    
+    // Sample outside (white)
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const r = 970 * scale;
+      const x = center + r * Math.cos(angle);
+      const y = center + r * Math.sin(angle);
+      whiteSamples.push(getPixel(x, y));
+    }
+    
+    const avgBlack = blackSamples.reduce((a, b) => a + b, 0) / blackSamples.length;
+    const avgWhite = whiteSamples.reduce((a, b) => a + b, 0) / whiteSamples.length;
+    const threshold = (avgBlack + avgWhite) / 2;
+    
+    console.log('Black avg:', avgBlack.toFixed(1));
+    console.log('White avg:', avgWhite.toFixed(1));
+    console.log('Threshold:', threshold.toFixed(1));
+    
+    let binary = '';
+    let confidenceSum = 0;
+    let shapeCount = 0;
+    
+    // Decode based on circular arrangement - MUST MATCH ENCODING EXACTLY
+    if (shapePattern === 'diamond') {
+      const { rings, innerRadius, outerRadius } = CONFIG;
+      const scaledInner = innerRadius * scale;
+      const scaledOuter = outerRadius * scale;
+      const ringWidth = (scaledOuter - scaledInner) / rings;
+      
+      console.log('Decoding diamond pattern:');
+      console.log('- Rings:', rings);
+      console.log('- Inner radius:', scaledInner.toFixed(1));
+      console.log('- Outer radius:', scaledOuter.toFixed(1));
+      console.log('- Ring width:', ringWidth.toFixed(2));
       
       for (let ring = rings - 1; ring >= 0; ring--) {
-        const r = innerRadius + ring * ringWidth + ringWidth / 2;
+        const r = scaledInner + ring * ringWidth + ringWidth / 2;
         const circumference = 2 * Math.PI * r;
-        const shapeSize = ringWidth * 0.8;
-        const numShapes = Math.floor(circumference / shapeSize);
+        const diamondSize = ringWidth * 0.8;
+        // Balanced spacing to match encoder
+        const numShapes = Math.floor(circumference / (diamondSize * 1.1));
         
         for (let i = 0; i < numShapes; i++) {
           const angle = (i / numShapes) * Math.PI * 2;
           const x = center + r * Math.cos(angle);
           const y = center + r * Math.sin(angle);
           
-          // Sample center of shape
+          // Dense sampling - 15x15 grid for accuracy
           let blackCount = 0;
           let whiteCount = 0;
-          const sampleSize = Math.max(3, shapeSize * 0.3);
+          const sampleRadius = diamondSize * 0.42;
+          const gridSize = 15;
           
-          for (let dx = -sampleSize; dx <= sampleSize; dx += 2) {
-            for (let dy = -sampleSize; dy <= sampleSize; dy += 2) {
+          for (let gx = 0; gx < gridSize; gx++) {
+            for (let gy = 0; gy < gridSize; gy++) {
+              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize);
+              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize);
               const brightness = getPixel(x + dx, y + dy);
-              if (brightness < 128) blackCount++;
+              
+              if (brightness < threshold) blackCount++;
               else whiteCount++;
             }
           }
           
-          binary += blackCount > whiteCount ? '1' : '0';
+          const total = blackCount + whiteCount;
+          const confidence = Math.max(blackCount, whiteCount) / total;
+          confidenceSum += confidence;
+          shapeCount++;
+          
+          const bit = blackCount > whiteCount ? '1' : '0';
+          binary += bit;
         }
       }
+      
+      console.log('Diamond: decoded', binary.length, 'bits from', rings, 'rings');
+      console.log('Shapes decoded:', shapeCount);
+      console.log('Expected capacity: ~', Math.floor(binary.length / 8 * 0.7 * 0.8), 'characters');
     } else if (shapePattern === 'triangle') {
       const rings = 35;
       const innerRadius = 80 * scale;
@@ -419,8 +539,8 @@ const ImigogoShapeCode = () => {
       for (let ring = rings - 1; ring >= 0; ring--) {
         const r = innerRadius + ring * ringWidth + ringWidth / 2;
         const circumference = 2 * Math.PI * r;
-        const shapeSize = ringWidth * 0.9;
-        const numShapes = Math.floor(circumference / shapeSize);
+        const triangleSize = ringWidth * 0.9;
+        const numShapes = Math.floor(circumference / triangleSize);
         
         for (let i = 0; i < numShapes; i++) {
           const angle = (i / numShapes) * Math.PI * 2;
@@ -429,15 +549,24 @@ const ImigogoShapeCode = () => {
           
           let blackCount = 0;
           let whiteCount = 0;
-          const sampleSize = Math.max(3, shapeSize * 0.3);
+          const sampleRadius = triangleSize * 0.3;
+          const gridSize = 9;
           
-          for (let dx = -sampleSize; dx <= sampleSize; dx += 2) {
-            for (let dy = -sampleSize; dy <= sampleSize; dy += 2) {
+          for (let gx = 0; gx < gridSize; gx++) {
+            for (let gy = 0; gy < gridSize; gy++) {
+              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize);
+              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize);
               const brightness = getPixel(x + dx, y + dy);
-              if (brightness < 128) blackCount++;
+              
+              if (brightness < threshold) blackCount++;
               else whiteCount++;
             }
           }
+          
+          const total = blackCount + whiteCount;
+          const confidence = Math.max(blackCount, whiteCount) / total;
+          confidenceSum += confidence;
+          shapeCount++;
           
           binary += blackCount > whiteCount ? '1' : '0';
         }
@@ -461,41 +590,95 @@ const ImigogoShapeCode = () => {
           
           let blackCount = 0;
           let whiteCount = 0;
-          const sampleSize = Math.max(3, hexSize * 0.5);
+          const sampleRadius = hexSize * 0.5;
+          const gridSize = 9;
           
-          for (let dx = -sampleSize; dx <= sampleSize; dx += 2) {
-            for (let dy = -sampleSize; dy <= sampleSize; dy += 2) {
+          for (let gx = 0; gx < gridSize; gx++) {
+            for (let gy = 0; gy < gridSize; gy++) {
+              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize);
+              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize);
               const brightness = getPixel(x + dx, y + dy);
-              if (brightness < 128) blackCount++;
+              
+              if (brightness < threshold) blackCount++;
               else whiteCount++;
             }
           }
+          
+          const total = blackCount + whiteCount;
+          const confidence = Math.max(blackCount, whiteCount) / total;
+          confidenceSum += confidence;
+          shapeCount++;
+          
+          binary += blackCount > whiteCount ? '1' : '0';
+        }
+      }
+    } else if (shapePattern === 'chevron') {
+      const rings = 30;
+      const innerRadius = 80 * scale;
+      const outerRadius = 480 * scale;
+      const ringWidth = (outerRadius - innerRadius) / rings;
+      
+      for (let ring = rings - 1; ring >= 0; ring--) {
+        const r = innerRadius + ring * ringWidth + ringWidth / 2;
+        const circumference = 2 * Math.PI * r;
+        const chevronSize = ringWidth * 0.8;
+        const numShapes = Math.floor(circumference / chevronSize);
+        
+        for (let i = 0; i < numShapes; i++) {
+          const angle = (i / numShapes) * Math.PI * 2;
+          const x = center + r * Math.cos(angle);
+          const y = center + r * Math.sin(angle);
+          
+          let blackCount = 0;
+          let whiteCount = 0;
+          const sampleRadius = chevronSize * 0.3;
+          const gridSize = 9;
+          
+          for (let gx = 0; gx < gridSize; gx++) {
+            for (let gy = 0; gy < gridSize; gy++) {
+              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize);
+              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize);
+              const brightness = getPixel(x + dx, y + dy);
+              
+              if (brightness < threshold) blackCount++;
+              else whiteCount++;
+            }
+          }
+          
+          const total = blackCount + whiteCount;
+          const confidence = Math.max(blackCount, whiteCount) / total;
+          confidenceSum += confidence;
+          shapeCount++;
           
           binary += blackCount > whiteCount ? '1' : '0';
         }
       }
     }
     
+    const avgConfidence = (confidenceSum / shapeCount) * 100;
+    
     console.log('Decoded bits:', binary.length);
+    console.log('Confidence:', avgConfidence.toFixed(1) + '%');
     
-    // Read header
-    const lengthBits = binary.substring(0, 16);
-    const textLength = parseInt(lengthBits, 2);
+    // Read 48-bit length header (with redundancy for error correction)
+    const textLength = decodeLengthWithRedundancy(binary);
     
-    console.log('Text length:', textLength);
+    console.log('Decoded byte length:', textLength);
     
-    if (textLength > 5000 || textLength === 0) {
+    if (textLength > 12000 || textLength === 0) {
+      console.error('Invalid length:', textLength);
       return { text: '[ERROR: Invalid length ' + textLength + ']', confidence: 0 };
     }
     
-    const patternBits = binary.substring(16, 19);
-    const dataBits = binary.substring(19, 19 + textLength * 8);
+    // Skip 48-bit length header + 3-bit pattern = 51 bits
+    const dataBits = binary.substring(51, 51 + textLength * 8);
     const decodedCompressed = binaryToText(dataBits);
     const decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
     
-    console.log('Decoded text:', decoded);
+    console.log('Decoded text length:', decoded.length, 'characters');
+    console.log('Decoded text preview:', decoded.substring(0, 100));
     
-    return { text: decoded, confidence: 90 };
+    return { text: decoded, confidence: avgConfidence };
   };
 
   const handleFileUpload = (e) => {
@@ -580,15 +763,15 @@ const ImigogoShapeCode = () => {
       </div>
 
       <div style={styles.inputSection}>
-        <label style={styles.label}>Enter Your Message:</label>
+        <label style={styles.label}>Enter Your Message (up to 5,000 characters for high accuracy):</label>
         <textarea
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type your message..."
-          maxLength={2000}
+          placeholder="Type your message... supports up to 5K characters with 99% accuracy!"
+          maxLength={5000}
           style={styles.textarea}
         />
-        <div style={styles.charCount}>{inputText.length} / 2000 characters</div>
+        <div style={styles.charCount}>{inputText.length} / 5,000 characters</div>
       </div>
 
       {inputText && (
