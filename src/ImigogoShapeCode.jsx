@@ -390,7 +390,20 @@ const ImigogoShapeCode = () => {
     
     const patternIndex = Object.keys(SHAPE_PATTERNS).indexOf(shapePattern);
     const patternBits = patternIndex.toString(2).padStart(3, '0');
-    const fullBinary = lengthBitsRedundant + patternBits + binary;
+    let fullBinary = lengthBitsRedundant + patternBits + binary;
+    
+    // Calculate approximate capacity (will be filled by pattern draw function)
+    // Most patterns use ~100 rings, estimate capacity
+    const estimatedCapacity = 100000; // Large enough for most patterns
+    
+    // Add alternating padding to fill space
+    if (fullBinary.length < estimatedCapacity) {
+      const paddingNeeded = estimatedCapacity - fullBinary.length;
+      console.log('Adding padding:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary += (i % 2).toString();
+      }
+    }
     
     console.log('Compressed length:', textToEncode.length, 'characters');
     console.log('Byte length:', bytes.length);

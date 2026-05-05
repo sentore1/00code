@@ -184,8 +184,19 @@ const ShotCodeV2 = ({ initialText = '' }) => {
     const binary = textToBinary(textToEncode);
     const binaryWithEC = addErrorCorrection(binary);
     const lengthBits = textToEncode.length.toString(2).padStart(16, '0');
-    const fullBinary = lengthBits + binaryWithEC;
+    let fullBinary = lengthBits + binaryWithEC;
     
+    // Calculate total capacity and add padding
+    const totalCapacity = rings * segments;
+    if (fullBinary.length < totalCapacity) {
+      const paddingNeeded = totalCapacity - fullBinary.length;
+      console.log('Adding padding:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary += (i % 2).toString();
+      }
+    }
+    
+    console.log('Total capacity:', totalCapacity);
     console.log('Total bits to encode:', fullBinary.length);
     
     // White background - PURE white

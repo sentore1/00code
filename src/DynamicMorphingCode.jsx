@@ -183,8 +183,31 @@ const DynamicMorphingCode = () => {
     const shapeIndex = SHAPE_TYPES.indexOf(morphShape);
     const shapeBits = shapeIndex.toString(2).padStart(3, '0');
     
-    const fullBinary = lengthBitsRedundant + scanCountBits + shapeBits + binary;
+    let fullBinary = lengthBitsRedundant + scanCountBits + shapeBits + binary;
     
+    // Calculate total capacity and add padding
+    const { rings, innerRadius, outerRadius } = CONFIG;
+    const ringWidth = (outerRadius - innerRadius) / rings;
+    let totalCapacity = 0;
+    
+    for (let ring = rings - 1; ring >= 0; ring--) {
+      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const circumference = 2 * Math.PI * r;
+      const shapeSize = ringWidth * 0.4;
+      const numShapes = Math.floor(circumference / (shapeSize * 2.2));
+      totalCapacity += numShapes;
+    }
+    
+    // Add alternating padding to fill remaining space
+    if (fullBinary.length < totalCapacity) {
+      const paddingNeeded = totalCapacity - fullBinary.length;
+      console.log('Adding padding:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary += (i % 2).toString();
+      }
+    }
+    
+    console.log('Total capacity:', totalCapacity);
     console.log('Total bits:', fullBinary.length);
     
     ctx.fillStyle = '#FFFFFF';
@@ -197,10 +220,7 @@ const DynamicMorphingCode = () => {
     ctx.arc(center, center, 130, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw encoded data with morphing
-    const { rings, innerRadius, outerRadius } = CONFIG;
-    const ringWidth = (outerRadius - innerRadius) / rings;
-    
+    // Draw encoded data with morphing (ringWidth already calculated above)
     let bitIndex = 0;
     
     for (let ring = rings - 1; ring >= 0 && bitIndex < fullBinary.length; ring--) {

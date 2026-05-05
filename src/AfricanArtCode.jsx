@@ -378,7 +378,20 @@ const AfricanArtCode = () => {
     const lengthBits = textToEncode.length.toString(2).padStart(16, '0');
     const styleIndex = Object.keys(ART_STYLES).indexOf(artStyle);
     const styleBits = styleIndex.toString(2).padStart(3, '0');
-    const fullBinary = lengthBits + styleBits + binary;
+    let fullBinary = lengthBits + styleBits + binary;
+    
+    // Calculate total capacity and add padding
+    const totalCapacity = rings * segments;
+    if (fullBinary.length < totalCapacity) {
+      const paddingNeeded = totalCapacity - fullBinary.length;
+      console.log('Adding padding:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary += (i % 2).toString();
+      }
+    }
+    
+    console.log('Total capacity:', totalCapacity);
+    console.log('Total bits:', fullBinary.length);
     
     // White background
     ctx.fillStyle = '#FFFFFF';

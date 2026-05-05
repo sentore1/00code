@@ -203,8 +203,40 @@ const DualLayerCode = () => {
     const len2Bits = bytes2.length.toString(2).padStart(16, '0');
     const len2Redundant = len2Bits + len2Bits + len2Bits;
     
-    const fullBinary1 = len1Redundant + binary1;
-    const fullBinary2 = len2Redundant + binary2;
+    let fullBinary1 = len1Redundant + binary1;
+    let fullBinary2 = len2Redundant + binary2;
+    
+    // Calculate capacity for each layer (50 rings each)
+    const { rings, innerRadius, outerRadius } = CONFIG;
+    const ringWidth = (outerRadius - innerRadius) / rings;
+    let capacityPerLayer = 0;
+    
+    // Each layer uses half the rings
+    for (let ring = rings - 1; ring >= rings / 2; ring--) {
+      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const circumference = 2 * Math.PI * r;
+      const shapeSize = ringWidth * 0.4;
+      const numShapes = Math.floor(circumference / (shapeSize * 2.2));
+      capacityPerLayer += numShapes;
+    }
+    
+    // Add padding to layer 1
+    if (fullBinary1.length < capacityPerLayer) {
+      const paddingNeeded = capacityPerLayer - fullBinary1.length;
+      console.log('Adding padding to layer 1:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary1 += (i % 2).toString();
+      }
+    }
+    
+    // Add padding to layer 2
+    if (fullBinary2.length < capacityPerLayer) {
+      const paddingNeeded = capacityPerLayer - fullBinary2.length;
+      console.log('Adding padding to layer 2:', paddingNeeded, 'bits');
+      for (let i = 0; i < paddingNeeded; i++) {
+        fullBinary2 += (i % 2).toString();
+      }
+    }
     
     console.log('Layer 1 total bits:', fullBinary1.length);
     console.log('Layer 2 total bits:', fullBinary2.length);

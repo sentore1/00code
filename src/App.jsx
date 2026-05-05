@@ -5,11 +5,13 @@ import AdaptiveShotCode from './AdaptiveShotCode';
 import ImigogoShapeCode from './ImigogoShapeCode';
 import DualLayerCode from './DualLayerCode';
 import DynamicMorphingCode from './DynamicMorphingCode';
+import AdvancedMorphingCode from './AdvancedMorphingCode';
+import SimpleMorphingCode from './SimpleMorphingCode';
 import './App.css';
 
 function App() {
   const [darkMode, setDarkMode] = useState(true);
-  const [mode, setMode] = useState('morphing'); // 'encode', 'scan', 'adaptive', 'imigongo', 'dual', or 'morphing'
+  const [mode, setMode] = useState('advanced'); // Default to advanced
 
   return (
     <div className={darkMode ? 'dark' : 'light'}>
@@ -17,6 +19,34 @@ function App() {
         <header className="app-header">
           <h1>ShotCode</h1>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setMode('advanced')}
+              style={{
+                padding: '8px 16px',
+                background: mode === 'advanced' ? '#9333ea' : 'transparent',
+                color: mode === 'advanced' ? 'white' : '#999',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Advanced (20K)
+            </button>
+            <button
+              onClick={() => setMode('simple')}
+              style={{
+                padding: '8px 16px',
+                background: mode === 'simple' ? '#f59e0b' : 'transparent',
+                color: mode === 'simple' ? 'white' : '#999',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Simple (5K)
+            </button>
             <button
               onClick={() => setMode('morphing')}
               style={{
@@ -43,7 +73,7 @@ function App() {
                 fontSize: '14px'
               }}
             >
-              Dual Layer (10K)
+              Dual (10K)
             </button>
             <button
               onClick={() => setMode('imigongo')}
@@ -110,7 +140,7 @@ function App() {
             </button>
           </div>
         </header>
-        {mode === 'morphing' ? <DynamicMorphingCode /> : mode === 'dual' ? <DualLayerCode /> : mode === 'imigongo' ? <ImigogoShapeCode /> : mode === 'adaptive' ? <AdaptiveShotCode /> : mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
+        {mode === 'grid' ? <GridCode /> : mode === 'advanced' ? <AdvancedMorphingCode /> : mode === 'simple' ? <SimpleMorphingCode /> : mode === 'morphing' ? <DynamicMorphingCode /> : mode === 'dual' ? <DualLayerCode /> : mode === 'imigongo' ? <ImigogoShapeCode /> : mode === 'adaptive' ? <AdaptiveShotCode /> : mode === 'encode' ? <ShotCodeV2 /> : <ShotCodeScanner />}
       </div>
     </div>
   );
