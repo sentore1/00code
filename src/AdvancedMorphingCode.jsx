@@ -30,6 +30,7 @@ const AdvancedMorphingCode = () => {
   const [morphShape, setMorphShape] = useState('diamond');
   const [rotationAngle, setRotationAngle] = useState(0);
   const [activeTab, setActiveTab] = useState('encode'); // New state for tabs
+  const [isGenerated, setIsGenerated] = useState(false); // Track if code is generated
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -325,9 +326,9 @@ const AdvancedMorphingCode = () => {
   const getAdaptiveSamplingParams = (shapeType) => {
     const params = {
       diamond: { 
-        gridSize: 17,              // 17×17 = 289 sample points
-        radiusMultiplier: 0.5,     // Sample 50% of shape radius
-        passes: 1                  // Single pass
+        gridSize: 21,              // 21×21 = 441 sample points (increased for better accuracy)
+        radiusMultiplier: 0.6,     // Sample 60% of shape radius (increased)
+        passes: 2                  // Two passes for better accuracy
       },
       triangle: { 
         gridSize: 17, 
@@ -506,6 +507,7 @@ const AdvancedMorphingCode = () => {
     ctx.fillText(`Scan #${scanCount} | Shape: ${morphShape}`, center, canvasSize - 30);
     
     console.log('Encoded successfully');
+    setIsGenerated(true);
   };
 
   const decodeLayer = (ctx, width, height) => {
@@ -790,7 +792,10 @@ const AdvancedMorphingCode = () => {
             <label style={styles.label}>Enter Your Message (up to 30,000 characters):</label>
             <textarea
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                setInputText(e.target.value);
+                setIsGenerated(false);
+              }}
               placeholder="Type your message..."
               maxLength={30000}
               style={styles.textarea}
@@ -804,18 +809,19 @@ const AdvancedMorphingCode = () => {
                 ...styles.button,
                 marginTop: '16px',
                 opacity: inputText ? 1 : 0.5,
-                cursor: inputText ? 'pointer' : 'not-allowed'
+                cursor: inputText ? 'pointer' : 'not-allowed',
+                transition: 'none',
+                transform: 'none'
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <circle cx="12" cy="12" r="10" />
               </svg>
               Generate Code
             </button>
           </div>
 
-          {canvasRef.current && canvasRef.current.width > 0 && (
-            <div style={styles.canvasSection}>
+          <div style={{...styles.canvasSection, display: isGenerated ? 'block' : 'none'}}>
               <div style={styles.metadata}>
                 <div style={styles.metadataItem}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -866,7 +872,6 @@ const AdvancedMorphingCode = () => {
                 </button>
               </div>
             </div>
-          )}
         </>
       )}
 
@@ -916,13 +921,15 @@ const styles = {
     fontSize: '42px',
     marginBottom: '12px',
     color: '#1a1a1a',
-    fontWeight: '700'
+    fontWeight: '700',
+    fontFamily: 'Arial, sans-serif'
   },
   subtitle: {
     textAlign: 'center',
     color: '#666',
     marginBottom: '40px',
-    fontSize: '18px'
+    fontSize: '18px',
+    fontFamily: 'Arial, sans-serif'
   },
   tabContainer: {
     display: 'flex',
@@ -965,7 +972,8 @@ const styles = {
     marginBottom: '14px',
     fontWeight: '600',
     fontSize: '16px',
-    color: '#333'
+    color: '#333',
+    fontFamily: 'Arial, sans-serif'
   },
   textarea: {
     width: '100%',
@@ -990,21 +998,19 @@ const styles = {
   metadata: {
     display: 'flex',
     gap: '24px',
-    justifyContent: 'center',
-    padding: '24px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '16px',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.25)'
+    justifyContent: 'flex-start',
+    padding: '16px 0',
+    background: '#ffffff',
+    marginBottom: '16px',
+    flexWrap: 'wrap'
   },
   metadataItem: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    color: 'white',
-    fontSize: '15px',
-    fontWeight: '500'
+    gap: '8px',
+    color: '#333333',
+    fontSize: '14px',
+    fontWeight: '400'
   },
   canvasSection: {
     textAlign: 'center',
@@ -1015,16 +1021,14 @@ const styles = {
     border: '1px solid #e0e0e0'
   },
   canvas: {
-    border: '3px solid #3b82f6',
-    borderRadius: '16px',
-    maxWidth: '100%',
-    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
+    border: 'none',
+    maxWidth: '100%'
   },
   buttonGroup: {
     marginTop: '24px',
     display: 'flex',
     gap: '14px',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     flexWrap: 'wrap'
   },
   button: {
@@ -1036,7 +1040,6 @@ const styles = {
     cursor: 'pointer',
     fontSize: '15px',
     fontWeight: '600',
-    transition: 'all 0.2s',
     display: 'inline-flex',
     alignItems: 'center',
     boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
@@ -1050,7 +1053,6 @@ const styles = {
     cursor: 'pointer',
     fontSize: '16px',
     fontWeight: '600',
-    transition: 'all 0.2s',
     display: 'inline-flex',
     alignItems: 'center',
     boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'

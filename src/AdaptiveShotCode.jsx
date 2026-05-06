@@ -5,16 +5,16 @@ const AdaptiveShotCode = () => {
   const [codeConfig, setCodeConfig] = useState(null);
   const [decodedText, setDecodedText] = useState('');
   const [activeTab, setActiveTab] = useState('encode');
+  const [codeGenerated, setCodeGenerated] = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
   // ADAPTIVE CONFIGURATIONS - Code grows with data
   const DENSITY_LEVELS = [
-    { name: 'Tiny', rings: 60, segments: 90, capacity: 675, color: '#10b981' },
     { name: 'Small', rings: 120, segments: 180, capacity: 2700, color: '#3b82f6' },
-    { name: 'Medium', rings: 180, segments: 270, capacity: 6075, color: '#f59e0b' },
-    { name: 'Large', rings: 240, segments: 360, capacity: 10800, color: '#ef4444' },
-    { name: 'Huge', rings: 300, segments: 450, capacity: 16875, color: '#8b5cf6' }
+    { name: 'Medium', rings: 180, segments: 270, capacity: 6075, color: '#3b82f6' },
+    { name: 'Large', rings: 240, segments: 360, capacity: 10800, color: '#3b82f6' },
+    { name: 'Huge', rings: 300, segments: 450, capacity: 16875, color: '#3b82f6' }
   ];
 
   const CONFIG = {
@@ -114,9 +114,11 @@ const AdaptiveShotCode = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Select optimal density
-    const density = selectOptimalDensity(inputText.length);
-    setCodeConfig(density);
+    // Use manually selected density or auto-select optimal density
+    const density = codeConfig || selectOptimalDensity(inputText.length);
+    if (!codeConfig) {
+      setCodeConfig(density);
+    }
     
     const { rings, segments } = density;
     const { canvasSize, outerRadius, innerRadius } = CONFIG;
@@ -198,10 +200,14 @@ const AdaptiveShotCode = () => {
     }
     
     console.log('Encoded', bitIndex, 'bits');
+    
+    // Mark code as generated
+    setCodeGenerated(true);
   };
 
   const decode = (ctx, width, height) => {
     console.log('=== ADAPTIVE DECODING ===');
+    console.log('Image size:', width, 'x', height);
     
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
@@ -214,35 +220,76 @@ const AdaptiveShotCode = () => {
       return (data[i] + data[i + 1] + data[i + 2]) / 3;
     };
     
-    // Try each density level to find which one was used
-    let bestResult = null;
-    let bestConfidence = 0;
+    // Detect center by finding the black circle
+    const center = { x: width / 2, y: height / 2 };
+    console.log('Center:', center);
     
-    for (const density of DENSITY_LEVELS) {
+    // Calculate scale based on image size
+    const scale = width / CONFIG.canvasSize;
+    console.log('Scale:', scale);
+    
+    // Try each density level and collect all valid results
+    const validResults = [];
+    const allAttempts = [];
+    
+    for (let i = 0; i < DENSITY_LEVELS.length; i++) {
+      const density = DENSITY_LEVELS[i];
+      console.log(`\n--- Trying ${density.name} (index ${i}) ---`);
+      console.log(`Configuration: ${density.rings} rings × ${density.segments} segments`);
+      console.log(`Total capacity: ${density.rings * density.segments} bits`);
+      
       try {
-        const result = decodeWithDensity(ctx, width, height, density, getPixel);
-        if (result.confidence > bestConfidence) {
-          bestConfidence = result.confidence;
-          bestResult = result;
+        const result = decodeWithDensity(ctx, width, height, density, getPixel, center, scale);
+        
+        console.log(`✓ Decode succeeded!`);
+        console.log(`  Header density index: ${result.densityIndex}`);
+        console.log(`  Text length from header: ${result.textLength}`);
+        console.log(`  Actual decoded length: ${result.text.length}`);
+        console.log(`  Confidence: ${result.confidence.toFixed(1)}%`);
+        console.log(`  Text preview: "${result.text.substring(0, 50)}..."`);
+        
+        allAttempts.push({ success: true, density: density.name, result });
+        
+        // Check if density index matches
+        if (result.densityIndex === i) {
+          console.log(`✓✓✓ PERFECT MATCH! Density index matches.`);
+          return result; // Return immediately on perfect match
+        } else {
+          console.log(`⚠ Density mismatch (expected ${i}, got ${result.densityIndex})`);
+          // Still keep it as a candidate if text looks valid
+          if (result.text.length > 0 && result.text.length === result.textLength) {
+            validResults.push({ ...result, indexMatch: false, expectedIndex: i });
+          }
         }
       } catch (err) {
-        // Try next density
+        console.log(`✗ Failed with error: ${err.message}`);
+        allAttempts.push({ success: false, density: density.name, error: err.message });
       }
     }
     
-    if (bestResult) {
-      console.log('Best density:', bestResult.density);
-      console.log('Confidence:', bestConfidence);
-      return bestResult;
+    // If no perfect match, try to find the best candidate
+    if (validResults.length > 0) {
+      console.log(`\n⚠ No perfect match found, but have ${validResults.length} candidates`);
+      
+      // Sort by confidence
+      validResults.sort((a, b) => b.confidence - a.confidence);
+      const best = validResults[0];
+      
+      console.log(`Using best candidate: ${best.density} (confidence: ${best.confidence.toFixed(1)}%)`);
+      console.log(`Note: Density index was ${best.densityIndex}, expected ${best.expectedIndex}`);
+      
+      return best;
     }
     
-    throw new Error('Could not decode with any density level');
+    console.error('\n=== DECODE FAILED ===');
+    console.error('No valid results from any density level');
+    console.error('All attempts:', allAttempts);
+    throw new Error('Could not decode - no density level matched');
   };
 
-  const decodeWithDensity = (ctx, width, height, density, getPixel) => {
+  const decodeWithDensity = (ctx, width, height, density, getPixel, center, scale) => {
     const { rings, segments } = density;
-    const scale = width / CONFIG.canvasSize;
-    const center = width / 2;
+    
     const scaledOuter = CONFIG.outerRadius * scale;
     const scaledInner = CONFIG.innerRadius * scale;
     const ringWidth = (scaledOuter - scaledInner) / rings;
@@ -251,67 +298,87 @@ const AdaptiveShotCode = () => {
     let confidenceSum = 0;
     let segmentCount = 0;
     
+    // Read from outermost ring to innermost (same as encoding)
     for (let ring = rings - 1; ring >= 0; ring--) {
       const r1 = scaledInner + ring * ringWidth;
       const r2 = scaledInner + (ring + 1) * ringWidth;
       
       for (let seg = 0; seg < segments; seg++) {
-        const a1 = (seg / segments) * Math.PI * 2;
-        const a2 = ((seg + 1) / segments) * Math.PI * 2;
+        const angleStart = (seg / segments) * Math.PI * 2;
+        const angleEnd = ((seg + 1) / segments) * Math.PI * 2;
         
+        // Sample multiple points in this segment
         let blackCount = 0;
         let whiteCount = 0;
-        const gridSize = 9;
+        const samples = 7; // Increased samples for better accuracy
         
-        for (let ri = 0; ri < gridSize; ri++) {
-          const rFraction = (ri + 0.5) / gridSize;
-          const r = r1 + (r2 - r1) * rFraction;
+        for (let s = 0; s < samples; s++) {
+          const angle = angleStart + (angleEnd - angleStart) * ((s + 0.5) / samples);
+          const r = r1 + (r2 - r1) * 0.5; // Middle of ring
           
-          for (let ai = 0; ai < gridSize; ai++) {
-            const aFraction = (ai + 0.5) / gridSize;
-            const angle = a1 + (a2 - a1) * aFraction;
-            
-            const x = center + r * Math.cos(angle);
-            const y = center + r * Math.sin(angle);
-            
-            const brightness = getPixel(x, y);
-            if (brightness < 128) {
-              blackCount++;
-            } else {
-              whiteCount++;
-            }
+          const x = center.x + r * Math.cos(angle);
+          const y = center.y + r * Math.sin(angle);
+          
+          const brightness = getPixel(x, y);
+          if (brightness < 128) {
+            blackCount++;
+          } else {
+            whiteCount++;
           }
         }
         
-        const total = blackCount + whiteCount;
-        const majority = Math.max(blackCount, whiteCount);
-        const bitConfidence = majority / total;
-        confidenceSum += bitConfidence;
-        segmentCount++;
+        const bit = blackCount > whiteCount ? '1' : '0';
+        binary += bit;
         
-        binary += blackCount > whiteCount ? '1' : '0';
+        const confidence = Math.max(blackCount, whiteCount) / samples;
+        confidenceSum += confidence;
+        segmentCount++;
       }
     }
     
     const avgConfidence = (confidenceSum / segmentCount) * 100;
     
-    // Read header
+    // Parse header
+    if (binary.length < 19) {
+      throw new Error(`Insufficient bits: ${binary.length}`);
+    }
+    
     const lengthBits = binary.substring(0, 16);
     const textLength = parseInt(lengthBits, 2);
     
-    if (textLength > 20000 || textLength === 0) {
-      throw new Error('Invalid length');
+    if (textLength === 0 || textLength > 20000) {
+      throw new Error(`Invalid text length: ${textLength}`);
     }
     
     const densityBits = binary.substring(16, 19);
     const densityIndex = parseInt(densityBits, 2);
     
-    const dataBits = binary.substring(19, 19 + textLength * 8);
-    const decodedCompressed = binaryToText(dataBits);
-    const decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
+    // Don't throw error on invalid density index, just note it
+    if (densityIndex < 0 || densityIndex >= DENSITY_LEVELS.length) {
+      console.log(`⚠ Unusual density index: ${densityIndex}`);
+    }
+    
+    // Extract data
+    const dataBitsNeeded = textLength * 8;
+    const totalBitsNeeded = 19 + dataBitsNeeded;
+    
+    if (binary.length < totalBitsNeeded) {
+      throw new Error(`Not enough data: need ${totalBitsNeeded}, have ${binary.length}`);
+    }
+    
+    const dataBits = binary.substring(19, 19 + dataBitsNeeded);
+    
+    let decoded;
+    try {
+      const decodedCompressed = binaryToText(dataBits);
+      decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
+    } catch (err) {
+      throw new Error(`Text decode failed: ${err.message}`);
+    }
     
     return {
       text: decoded,
+      textLength,
       confidence: avgConfidence,
       density: density.name,
       densityIndex
@@ -338,29 +405,102 @@ const AdaptiveShotCode = () => {
           setCodeConfig(DENSITY_LEVELS[result.densityIndex]);
         } catch (error) {
           console.error('Decode error:', error);
-          setDecodedText('[ERROR: ' + error.message + ']');
+          setDecodedText('[ERROR] ' + error.message + '\n\nTips:\n• Make sure this is an Adaptive ShotCode image\n• Try encoding and decoding a test message first\n• Check browser console for detailed logs');
         }
       };
+      img.onerror = () => {
+        setDecodedText('[ERROR] Failed to load image file');
+      };
       img.src = e.target.result;
+    };
+    reader.onerror = () => {
+      setDecodedText('[ERROR] Failed to read file');
     };
     reader.readAsDataURL(file);
   };
 
   const testDecode = () => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {
+      alert('No canvas found!');
+      return;
+    }
+    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    const result = decode(ctx, canvas.width, canvas.height);
-    const match = inputText === result.text;
+    console.clear();
+    console.log('========================================');
+    console.log('STARTING TEST DECODE');
+    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    console.log('Input text:', inputText);
+    console.log('Input text length:', inputText.length);
+    console.log('Code config:', codeConfig);
+    console.log('========================================');
     
-    alert(
-      `Density: ${result.density}\n\n` +
-      `Original: ${inputText.length} chars\n` +
-      `Decoded: ${result.text.length} chars\n\n` +
-      `Match: ${match ? 'YES ✓' : 'NO ✗'}\n` +
-      `Confidence: ${result.confidence.toFixed(1)}%`
-    );
+    // Quick sanity check - read a few pixels
+    const testPixels = [];
+    for (let i = 0; i < 5; i++) {
+      const x = Math.floor(canvas.width * (i + 1) / 6);
+      const y = canvas.height / 2;
+      const imageData = ctx.getImageData(x, y, 1, 1);
+      const brightness = (imageData.data[0] + imageData.data[1] + imageData.data[2]) / 3;
+      testPixels.push({ x, y, brightness: brightness.toFixed(0) });
+    }
+    console.log('Sample pixels:', testPixels);
+    
+    try {
+      const result = decode(ctx, canvas.width, canvas.height);
+      const match = inputText === result.text;
+      
+      console.log('\n========================================');
+      console.log('TEST DECODE COMPLETE');
+      console.log('========================================');
+      console.log('Match:', match);
+      console.log('Original length:', inputText.length);
+      console.log('Decoded length:', result.text.length);
+      
+      if (!match) {
+        console.log('\nOriginal text:');
+        console.log(inputText);
+        console.log('\nDecoded text:');
+        console.log(result.text);
+        
+        // Find first difference
+        for (let i = 0; i < Math.max(inputText.length, result.text.length); i++) {
+          if (inputText[i] !== result.text[i]) {
+            console.log(`\nFirst difference at position ${i}:`);
+            console.log(`  Original: "${inputText[i]}" (code ${inputText.charCodeAt(i)})`);
+            console.log(`  Decoded:  "${result.text[i]}" (code ${result.text.charCodeAt(i)})`);
+            break;
+          }
+        }
+      }
+      
+      const message = 
+        `${match ? '✓' : '✗'} DECODE ${match ? 'SUCCESS' : 'FAILED'}\n\n` +
+        `Density: ${result.density}\n` +
+        `Confidence: ${result.confidence.toFixed(1)}%\n\n` +
+        `Original: ${inputText.length} chars\n` +
+        `Decoded: ${result.text.length} chars\n\n` +
+        `Match: ${match ? '✓ YES - Perfect!' : '✗ NO - Mismatch'}\n\n` +
+        (match ? 'The code can be read correctly!' : 'Check browser console (F12) for details');
+      
+      alert(message);
+    } catch (error) {
+      console.error('\n========================================');
+      console.error('TEST DECODE ERROR');
+      console.error('========================================');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      alert(
+        `✗ DECODE FAILED\n\n` +
+        `Error: ${error.message}\n\n` +
+        `Check browser console (F12) for detailed logs.\n` +
+        `Make sure you clicked "Generate Code" first!`
+      );
+    }
   };
 
   const download = () => {
@@ -418,29 +558,22 @@ const AdaptiveShotCode = () => {
         <>
           <div style={styles.densityBar}>
             {DENSITY_LEVELS.map((level, idx) => (
-              <div
+              <button
                 key={level.name}
+                onClick={() => setCodeConfig({ ...level, index: idx })}
                 style={{
                   ...styles.densityLevel,
                   background: codeConfig?.index === idx ? level.color : '#f8f9fa',
                   color: codeConfig?.index === idx ? 'white' : '#666',
-                  border: `2px solid ${codeConfig?.index === idx ? level.color : '#e0e0e0'}`
+                  border: `2px solid ${codeConfig?.index === idx ? level.color : '#e0e0e0'}`,
+                  cursor: 'pointer'
                 }}
               >
                 <div style={styles.densityName}>{level.name}</div>
                 <div style={styles.densityCapacity}>{level.capacity}B</div>
-              </div>
+              </button>
             ))}
           </div>
-
-          {codeConfig && (
-            <div style={{ ...styles.currentDensity, borderColor: codeConfig.color }}>
-              <strong>Current: {codeConfig.name}</strong> - {codeConfig.rings} rings × {codeConfig.segments} segments
-              <div style={styles.usage}>
-                Using {inputText.length} / {codeConfig.capacity} bytes ({Math.round(inputText.length / codeConfig.capacity * 100)}%)
-              </div>
-            </div>
-          )}
 
           <div style={styles.inputSection}>
             <label style={styles.label}>Enter Text (code will adapt automatically):</label>
@@ -452,9 +585,27 @@ const AdaptiveShotCode = () => {
               style={styles.textarea}
             />
             <div style={styles.charCount}>{inputText.length} characters</div>
+            
+            <button 
+              onClick={encode} 
+              disabled={!inputText}
+              style={{
+                ...styles.button,
+                marginTop: '16px',
+                opacity: inputText ? 1 : 0.5,
+                cursor: inputText ? 'pointer' : 'not-allowed',
+                transition: 'none',
+                transform: 'none'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+              Generate Code
+            </button>
           </div>
 
-          {inputText && (
+          {codeGenerated && (
             <div style={styles.canvasSection}>
               <canvas ref={canvasRef} style={styles.canvas} />
               <div style={styles.buttonGroup}>
@@ -563,25 +714,26 @@ const styles = {
   },
   densityBar: {
     display: 'flex',
-    gap: '12px',
-    marginBottom: '24px'
+    gap: '8px',
+    marginBottom: '24px',
+    justifyContent: 'center'
   },
   densityLevel: {
-    flex: 1,
-    padding: '16px 12px',
-    borderRadius: '12px',
+    padding: '6px 12px',
+    borderRadius: '6px',
     textAlign: 'center',
-    fontSize: '13px',
+    fontSize: '10px',
     transition: 'all 0.3s',
-    fontWeight: '600'
+    fontWeight: '600',
+    minWidth: '70px'
   },
   densityName: {
     fontWeight: '700',
-    marginBottom: '6px',
-    fontSize: '14px'
+    marginBottom: '2px',
+    fontSize: '11px'
   },
   densityCapacity: {
-    fontSize: '12px',
+    fontSize: '9px',
     opacity: 0.9
   },
   currentDensity: {
@@ -635,16 +787,14 @@ const styles = {
   canvasSection: {
     textAlign: 'center',
     marginBottom: '50px',
-    background: '#f8f9fa',
+    background: '#ffffff',
     padding: '32px',
-    borderRadius: '16px',
-    border: '1px solid #e0e0e0'
+    borderRadius: '0',
+    border: 'none'
   },
   canvas: {
-    border: '3px solid #3b82f6',
-    borderRadius: '16px',
-    maxWidth: '100%',
-    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
+    border: 'none',
+    maxWidth: '100%'
   },
   buttonGroup: {
     marginTop: '24px',

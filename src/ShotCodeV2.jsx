@@ -6,6 +6,7 @@ const ShotCodeV2 = ({ initialText = '' }) => {
   const [decodedText, setDecodedText] = useState('');
   const [confidence, setConfidence] = useState(0);
   const [activeTab, setActiveTab] = useState('encode');
+  const [codeGenerated, setCodeGenerated] = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -242,6 +243,9 @@ const ShotCodeV2 = ({ initialText = '' }) => {
     }
     
     console.log('Encoded', bitIndex, 'bits');
+    
+    // Mark code as generated
+    setCodeGenerated(true);
   };
 
   const decode = (ctx, width, height) => {
@@ -538,17 +542,19 @@ const ShotCodeV2 = ({ initialText = '' }) => {
                 ...styles.button,
                 marginTop: '16px',
                 opacity: inputText ? 1 : 0.5,
-                cursor: inputText ? 'pointer' : 'not-allowed'
+                cursor: inputText ? 'pointer' : 'not-allowed',
+                transition: 'none',
+                transform: 'none'
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <circle cx="12" cy="12" r="10" />
               </svg>
               Generate Code
             </button>
           </div>
 
-          {inputText && (
+          {codeGenerated && (
             <div style={styles.canvasSection}>
               <canvas ref={canvasRef} style={styles.canvas} />
               <div style={styles.buttonGroup}>

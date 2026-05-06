@@ -17,18 +17,18 @@ function App() {
       <div className="app-container">
         <header className="app-header">
           <h1>00code</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => setMode('advanced')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'advanced' ? '#3b82f6' : 'transparent',
                 color: mode === 'advanced' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Advanced (30K)
@@ -36,14 +36,14 @@ function App() {
             <button
               onClick={() => setMode('morphing')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'morphing' ? '#3b82f6' : 'transparent',
                 color: mode === 'morphing' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Morphing
@@ -51,14 +51,14 @@ function App() {
             <button
               onClick={() => setMode('dual')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'dual' ? '#3b82f6' : 'transparent',
                 color: mode === 'dual' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Dual (10K)
@@ -66,14 +66,14 @@ function App() {
             <button
               onClick={() => setMode('imigongo')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'imigongo' ? '#3b82f6' : 'transparent',
                 color: mode === 'imigongo' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Imigongo (5K)
@@ -81,14 +81,14 @@ function App() {
             <button
               onClick={() => setMode('adaptive')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'adaptive' ? '#3b82f6' : 'transparent',
                 color: mode === 'adaptive' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Adaptive
@@ -96,14 +96,14 @@ function App() {
             <button
               onClick={() => setMode('encode')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'encode' ? '#3b82f6' : 'transparent',
                 color: mode === 'encode' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Circular
@@ -111,14 +111,14 @@ function App() {
             <button
               onClick={() => setMode('scan')}
               style={{
-                padding: '8px 16px',
+                padding: '6px 12px',
                 background: mode === 'scan' ? '#3b82f6' : 'transparent',
                 color: mode === 'scan' ? 'white' : '#999',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                fontSize: '13px',
+                fontWeight: '500'
               }}
             >
               Scan

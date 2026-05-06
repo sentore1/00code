@@ -487,10 +487,27 @@ const DualLayerCode = () => {
               style={styles.textarea}
             />
             <div style={styles.charCount}>{inputText.length} / 10,000 characters</div>
+            
+            <button 
+              onClick={encode} 
+              disabled={!inputText}
+              style={{
+                ...styles.button,
+                marginTop: '16px',
+                opacity: inputText ? 1 : 0.5,
+                cursor: inputText ? 'pointer' : 'not-allowed',
+                transition: 'none',
+                transform: 'none'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                <circle cx="12" cy="12" r="10" />
+              </svg>
+              Generate Code
+            </button>
           </div>
 
-          {inputText && (
-            <div style={styles.canvasSection}>
+          <div style={styles.canvasSection}>
               <canvas ref={canvasRef} style={styles.canvas} />
               <div style={styles.buttonGroup}>
                 <button onClick={download} style={styles.button}>
@@ -509,7 +526,6 @@ const DualLayerCode = () => {
                 </button>
               </div>
             </div>
-          )}
         </>
       )}
 
