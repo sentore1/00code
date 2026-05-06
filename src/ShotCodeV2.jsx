@@ -5,6 +5,7 @@ const ShotCodeV2 = ({ initialText = '' }) => {
   const [inputText, setInputText] = useState(initialText);
   const [decodedText, setDecodedText] = useState('');
   const [confidence, setConfidence] = useState(0);
+  const [activeTab, setActiveTab] = useState('encode');
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -12,7 +13,7 @@ const ShotCodeV2 = ({ initialText = '' }) => {
   React.useEffect(() => {
     if (initialText) {
       setInputText(initialText);
-      setTimeout(() => encode(), 50);
+      // Only encode when explicitly triggered
     }
   }, [initialText]);
 
@@ -477,113 +478,323 @@ const ShotCodeV2 = ({ initialText = '' }) => {
   const estimatedCapacity = CONFIG.useCompression ? '~12,000+' : maxBytes;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '900px', margin: '0 auto', fontFamily: 'Arial' }}>
-      <h1 style={{ textAlign: 'center' }}>ShotCode V2 - Ultra High Capacity</h1>
-      <p style={{ textAlign: 'center', color: '#666', marginBottom: '10px' }}>
+    <div style={styles.container}>
+      <h1 style={styles.title}>ShotCode V2 - Ultra High Capacity</h1>
+      <p style={styles.subtitle}>
         {CONFIG.rings} rings × {CONFIG.segments} segments = {totalBits} bits = <strong>{estimatedCapacity} characters</strong>
       </p>
-      <p style={{ textAlign: 'center', color: '#999', fontSize: '14px', marginBottom: '30px' }}>
-        {CONFIG.canvasSize}×{CONFIG.canvasSize}px • 9×9 sampling (81 points) • {CONFIG.useCompression ? 'Space compression' : 'No compression'} • 1.5° per segment
-      </p>
 
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-          Enter Text:
-        </label>
-        <textarea
-          value={inputText}
-          onChange={(e) => {
-            setInputText(e.target.value);
-            setTimeout(() => encode(), 50);
-          }}
-          placeholder="Type or paste your text here..."
-          maxLength={10000}
+      {/* Tab Navigation */}
+      <div style={styles.tabContainer}>
+        <button
+          onClick={() => setActiveTab('encode')}
           style={{
-            width: '100%',
-            padding: '12px',
-            fontSize: '14px',
-            border: '2px solid #ddd',
-            borderRadius: '8px',
-            boxSizing: 'border-box',
-            minHeight: '120px',
-            fontFamily: 'monospace'
+            ...styles.tab,
+            ...(activeTab === 'encode' ? styles.activeTab : styles.inactiveTab)
           }}
-        />
-        <div style={{ textAlign: 'right', color: '#999', fontSize: '14px', marginTop: '5px' }}>
-          {inputText.length} characters
-        </div>
-      </div>
-
-      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <canvas 
-          ref={canvasRef} 
-          style={{ 
-            border: '2px solid #ddd', 
-            borderRadius: '8px', 
-            maxWidth: '100%',
-            background: '#f9f9f9'
-          }} 
-        />
-        {inputText && (
-          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button onClick={download} style={buttonStyle}>Download PNG</button>
-            <button onClick={testDecode} style={{ ...buttonStyle, background: '#f59e0b' }}>Test Decode</button>
-          </div>
-        )}
-      </div>
-
-      <div style={{ borderTop: '2px solid #ddd', paddingTop: '20px' }}>
-        <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
-          Upload ShotCode to Decode:
-        </label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
-        <button onClick={() => fileInputRef.current?.click()} style={buttonStyle}>
-          Choose Image
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          Encode Message
         </button>
-        
-        {decodedText && (
-          <div style={{ marginTop: '15px', padding: '15px', background: '#f3f4f6', borderRadius: '8px' }}>
-            <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong>Decoded: {decodedText.length} characters</strong>
-              <div style={{ fontSize: '14px', color: confidence > 90 ? '#10b981' : confidence > 70 ? '#f59e0b' : '#ef4444' }}>
-                {confidence}% confidence
+        <button
+          onClick={() => setActiveTab('decode')}
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'decode' ? styles.activeTab : styles.inactiveTab)
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Decode Image
+        </button>
+      </div>
+
+      {/* Encode Tab */}
+      {activeTab === 'encode' && (
+        <>
+          <div style={styles.inputSection}>
+            <label style={styles.label}>Enter Your Message:</label>
+            <textarea
+              value={inputText}
+              onChange={(e) => {
+                setInputText(e.target.value);
+              }}
+              placeholder="Type your message..."
+              maxLength={10000}
+              style={styles.textarea}
+            />
+            <div style={styles.charCount}>{inputText.length} characters</div>
+            
+            <button 
+              onClick={encode} 
+              disabled={!inputText}
+              style={{
+                ...styles.button,
+                marginTop: '16px',
+                opacity: inputText ? 1 : 0.5,
+                cursor: inputText ? 'pointer' : 'not-allowed'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+              Generate Code
+            </button>
+          </div>
+
+          {inputText && (
+            <div style={styles.canvasSection}>
+              <canvas ref={canvasRef} style={styles.canvas} />
+              <div style={styles.buttonGroup}>
+                <button onClick={download} style={styles.button}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </button>
+                <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Test Decode
+                </button>
               </div>
             </div>
-            <div style={{ 
-              maxHeight: '200px', 
-              overflow: 'auto', 
-              background: 'white', 
-              padding: '10px', 
-              borderRadius: '4px',
-              fontSize: '13px',
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}>
-              {decodedText}
+          )}
+        </>
+      )}
+
+      {/* Decode Tab */}
+      {activeTab === 'decode' && (
+        <div style={styles.decodeSection}>
+          <h3 style={styles.sectionTitle}>Scan Code Image</h3>
+          <p style={styles.decodeDescription}>Upload a ShotCode V2 image to decode the message</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+          <button onClick={() => fileInputRef.current?.click()} style={styles.uploadButton}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload Image
+          </button>
+          
+          {decodedText && (
+            <div style={styles.result}>
+              <div style={styles.resultHeader}>
+                <strong>Decoded ({decodedText.length} chars)</strong>
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: confidence > 90 ? '#10b981' : confidence > 70 ? '#f59e0b' : '#ef4444',
+                  fontWeight: '600'
+                }}>
+                  {confidence}% confidence
+                </div>
+              </div>
+              <div style={styles.decodedBox}>{decodedText}</div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-const buttonStyle = {
-  padding: '12px 24px',
-  background: '#3b82f6',
-  color: 'white',
-  border: 'none',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  fontSize: '16px',
-  fontWeight: 'bold'
+const styles = {
+  container: {
+    padding: '60px 40px',
+    maxWidth: '1400px',
+    margin: '0 auto',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    background: '#ffffff'
+  },
+  title: {
+    textAlign: 'center',
+    fontSize: '42px',
+    marginBottom: '12px',
+    color: '#1a1a1a',
+    fontWeight: '700'
+  },
+  subtitle: {
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: '40px',
+    fontSize: '18px'
+  },
+  tabContainer: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '40px',
+    justifyContent: 'center',
+    borderBottom: '2px solid #e0e0e0',
+    paddingBottom: '0'
+  },
+  tab: {
+    padding: '16px 32px',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: '600',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '-2px'
+  },
+  activeTab: {
+    color: '#3b82f6',
+    borderBottomColor: '#3b82f6'
+  },
+  inactiveTab: {
+    color: '#666',
+    borderBottomColor: 'transparent'
+  },
+  inputSection: {
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
+  },
+  label: {
+    display: 'block',
+    marginBottom: '14px',
+    fontWeight: '600',
+    fontSize: '16px',
+    color: '#333'
+  },
+  textarea: {
+    width: '100%',
+    padding: '18px',
+    fontSize: '15px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '10px',
+    boxSizing: 'border-box',
+    minHeight: '140px',
+    fontFamily: 'monospace',
+    resize: 'vertical',
+    transition: 'border-color 0.2s',
+    outline: 'none',
+    background: '#ffffff'
+  },
+  charCount: {
+    textAlign: 'right',
+    color: '#999',
+    fontSize: '14px',
+    marginTop: '10px'
+  },
+  canvasSection: {
+    textAlign: 'center',
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
+  },
+  canvas: {
+    border: '3px solid #3b82f6',
+    borderRadius: '16px',
+    maxWidth: '100%',
+    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
+  },
+  buttonGroup: {
+    marginTop: '24px',
+    display: 'flex',
+    gap: '14px',
+    justifyContent: 'center',
+    flexWrap: 'wrap'
+  },
+  button: {
+    padding: '14px 28px',
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+  },
+  uploadButton: {
+    padding: '16px 32px',
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+  },
+  decodeSection: {
+    padding: '48px 32px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    marginBottom: '30px',
+    border: '1px solid #e0e0e0',
+    textAlign: 'center',
+    minHeight: '400px'
+  },
+  sectionTitle: {
+    marginTop: '0',
+    marginBottom: '12px',
+    fontSize: '28px',
+    fontWeight: '600',
+    color: '#333'
+  },
+  decodeDescription: {
+    color: '#666',
+    fontSize: '16px',
+    marginBottom: '32px'
+  },
+  result: {
+    marginTop: '32px',
+    padding: '24px',
+    background: '#ffffff',
+    borderRadius: '10px',
+    textAlign: 'left',
+    border: '1px solid #e0e0e0'
+  },
+  resultHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '14px'
+  },
+  decodedBox: {
+    marginTop: '14px',
+    padding: '18px',
+    background: '#f8f9fa',
+    border: '1px solid #e0e0e0',
+    borderRadius: '10px',
+    fontFamily: 'monospace',
+    fontSize: '14px',
+    maxHeight: '250px',
+    overflow: 'auto',
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word'
+  }
 };
 
 export default ShotCodeV2;

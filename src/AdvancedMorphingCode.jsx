@@ -29,6 +29,7 @@ const AdvancedMorphingCode = () => {
   const [scanCount, setScanCount] = useState(0);
   const [morphShape, setMorphShape] = useState('diamond');
   const [rotationAngle, setRotationAngle] = useState(0);
+  const [activeTab, setActiveTab] = useState('encode'); // New state for tabs
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -492,7 +493,7 @@ const AdvancedMorphingCode = () => {
       }
     }
     
-    ctx.strokeStyle = '#000000';
+    ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 15;
     ctx.beginPath();
     ctx.arc(center, center, 960, 0, Math.PI * 2);
@@ -743,218 +744,382 @@ const AdvancedMorphingCode = () => {
   };
 
   useEffect(() => {
-    if (inputText) {
-      encode();
-    }
-  }, [inputText, scanCount, morphShape, rotationAngle]);
+    // Only encode when explicitly triggered, not on every text change
+  }, []);
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Advanced Morphing Code</h1>
       <p style={styles.subtitle}>Dynamic ring sections • Living data system • 30K capacity</p>
 
-      <div style={styles.inputSection}>
-        <label style={styles.label}>Enter Your Message (up to 30,000 characters):</label>
-        <textarea
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type your message..."
-          maxLength={30000}
-          style={styles.textarea}
-        />
-        <div style={styles.charCount}>{inputText.length} / 30,000 characters</div>
+      {/* Tab Navigation */}
+      <div style={styles.tabContainer}>
+        <button
+          onClick={() => setActiveTab('encode')}
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'encode' ? styles.activeTab : styles.inactiveTab)
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          Encode Message
+        </button>
+        <button
+          onClick={() => setActiveTab('decode')}
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'decode' ? styles.activeTab : styles.inactiveTab)
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Decode Image
+        </button>
       </div>
 
-      {inputText && (
-        <div style={styles.canvasSection}>
-          <div style={styles.metadata}>
-            <div>📊 Scan Count: <strong>{scanCount}</strong></div>
-            <div>🔷 Shape: <strong>{morphShape}</strong></div>
-            <div>🔄 Rotation: <strong>{rotationAngle}°</strong></div>
+      {/* Encode Tab Content */}
+      {activeTab === 'encode' && (
+        <>
+          <div style={styles.inputSection}>
+            <label style={styles.label}>Enter Your Message (up to 30,000 characters):</label>
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Type your message..."
+              maxLength={30000}
+              style={styles.textarea}
+            />
+            <div style={styles.charCount}>{inputText.length} / 30,000 characters</div>
+            
+            <button 
+              onClick={encode} 
+              disabled={!inputText}
+              style={{
+                ...styles.button,
+                marginTop: '16px',
+                opacity: inputText ? 1 : 0.5,
+                cursor: inputText ? 'pointer' : 'not-allowed'
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
+              Generate Code
+            </button>
           </div>
-          
-          <canvas ref={canvasRef} style={styles.canvas} />
-          
-          <div style={styles.buttonGroup}>
-            <button onClick={download} style={styles.button}>
-              Download
-            </button>
-            <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
-              Test Decode
-            </button>
-            <button onClick={simulateScan} style={{ ...styles.button, background: '#10b981' }}>
-              Simulate Scan
-            </button>
-          </div>
-        </div>
+
+          {canvasRef.current && canvasRef.current.width > 0 && (
+            <div style={styles.canvasSection}>
+              <div style={styles.metadata}>
+                <div style={styles.metadataItem}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                  </svg>
+                  <span>Scan Count: <strong>{scanCount}</strong></span>
+                </div>
+                <div style={styles.metadataItem}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  <span>Shape: <strong>{morphShape}</strong></span>
+                </div>
+                <div style={styles.metadataItem}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>Rotation: <strong>{rotationAngle}°</strong></span>
+                </div>
+              </div>
+              
+              <canvas ref={canvasRef} style={styles.canvas} />
+              
+              <div style={styles.buttonGroup}>
+                <button onClick={download} style={styles.button}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </button>
+                <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Test Decode
+                </button>
+                <button onClick={simulateScan} style={{ ...styles.button, background: '#10b981' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  Simulate Scan
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      <div style={styles.decodeSection}>
-        <h3>Scan Code Image</h3>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
-        <button onClick={() => fileInputRef.current?.click()} style={styles.button}>
-          Upload Image
-        </button>
-        
-        {decodedText && (
-          <div style={styles.result}>
-            <strong>Decoded ({decodedText.length} chars):</strong>
-            <div style={styles.decodedBox}>{decodedText}</div>
-          </div>
-        )}
-      </div>
-
-      <div style={styles.infoSection}>
-        <h3>Advanced Features</h3>
-        <ul>
-          <li>✓ Dynamic ring sections (6 layers)</li>
-          <li>✓ Living data system (evolves with each scan)</li>
-          <li>✓ Partial decoding (read specific rings)</li>
-          <li>✓ Shape morphing (Diamond → Triangle → Hexagon → Chevron)</li>
-          <li>✓ Scan tracking (embedded counter)</li>
-          <li>✓ 30K character capacity</li>
-          <li>✓ All Unicode languages supported</li>
-        </ul>
-        
-        <h3 style={{ marginTop: '20px' }}>Ring Structure (150 Rings)</h3>
-        <div style={styles.ringStructure}>
-          <div style={{ ...styles.ringSection, background: '#ff6b6b' }}>
-            <strong>Rings 1-20</strong><br/>Metadata Layer<br/><small>Scan tracking</small>
-          </div>
-          <div style={{ ...styles.ringSection, background: '#4ecdc4' }}>
-            <strong>Rings 21-40</strong><br/>Formula Layer<br/><small>Executable logic</small>
-          </div>
-          <div style={{ ...styles.ringSection, background: '#45b7d1' }}>
-            <strong>Rings 41-60</strong><br/>State Layer<br/><small>Current values</small>
-          </div>
-          <div style={{ ...styles.ringSection, background: '#96ceb4' }}>
-            <strong>Rings 61-100</strong><br/>Data Layer<br/><small>Primary dataset</small>
-          </div>
-          <div style={{ ...styles.ringSection, background: '#ffeaa7' }}>
-            <strong>Rings 101-120</strong><br/>Evolution Layer<br/><small>Predictions</small>
-          </div>
-          <div style={{ ...styles.ringSection, background: '#dfe6e9' }}>
-            <strong>Rings 121-150</strong><br/>History Layer<br/><small>Scan log</small>
-          </div>
+      {/* Decode Tab Content */}
+      {activeTab === 'decode' && (
+        <div style={styles.decodeSection}>
+          <h3 style={styles.sectionTitle}>Scan Code Image</h3>
+          <p style={styles.decodeDescription}>Upload an Advanced Morphing Code image to decode the message</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+          <button onClick={() => fileInputRef.current?.click()} style={styles.uploadButton}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload Image
+          </button>
+          
+          {decodedText && (
+            <div style={styles.result}>
+              <strong>Decoded ({decodedText.length} chars):</strong>
+              <div style={styles.decodedBox}>{decodedText}</div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 const styles = {
   container: {
-    padding: '20px',
-    maxWidth: '1000px',
-    margin: '0 auto'
+    padding: '60px 40px',
+    maxWidth: '1400px',
+    margin: '0 auto',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    background: '#ffffff'
   },
   title: {
     textAlign: 'center',
-    fontSize: '32px',
-    marginBottom: '8px'
+    fontSize: '42px',
+    marginBottom: '12px',
+    color: '#1a1a1a',
+    fontWeight: '700'
   },
   subtitle: {
     textAlign: 'center',
     color: '#666',
-    marginBottom: '30px'
+    marginBottom: '40px',
+    fontSize: '18px'
+  },
+  tabContainer: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '40px',
+    justifyContent: 'center',
+    borderBottom: '2px solid #e0e0e0',
+    paddingBottom: '0'
+  },
+  tab: {
+    padding: '16px 32px',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: '600',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '-2px'
+  },
+  activeTab: {
+    color: '#3b82f6',
+    borderBottomColor: '#3b82f6'
+  },
+  inactiveTab: {
+    color: '#666',
+    borderBottomColor: 'transparent'
   },
   inputSection: {
-    marginBottom: '30px'
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
   },
   label: {
     display: 'block',
-    marginBottom: '10px',
-    fontWeight: 'bold'
+    marginBottom: '14px',
+    fontWeight: '600',
+    fontSize: '16px',
+    color: '#333'
   },
   textarea: {
     width: '100%',
-    padding: '15px',
+    padding: '18px',
     fontSize: '15px',
-    border: '2px solid #ddd',
-    borderRadius: '8px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '10px',
     boxSizing: 'border-box',
-    minHeight: '100px',
+    minHeight: '140px',
     fontFamily: 'monospace',
-    resize: 'vertical'
+    resize: 'vertical',
+    transition: 'border-color 0.2s',
+    outline: 'none',
+    background: '#ffffff'
   },
   charCount: {
     textAlign: 'right',
     color: '#999',
     fontSize: '14px',
-    marginTop: '8px'
+    marginTop: '10px'
   },
   metadata: {
     display: 'flex',
-    gap: '15px',
+    gap: '24px',
     justifyContent: 'center',
-    padding: '15px',
-    background: '#f0f0f0',
-    borderRadius: '8px',
-    marginBottom: '15px',
-    fontSize: '14px',
-    flexWrap: 'wrap'
+    padding: '24px',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    borderRadius: '16px',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.25)'
+  },
+  metadataItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    color: 'white',
+    fontSize: '15px',
+    fontWeight: '500'
   },
   canvasSection: {
     textAlign: 'center',
-    marginBottom: '30px'
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
   },
   canvas: {
-    border: '3px solid #8B4513',
-    borderRadius: '8px',
-    maxWidth: '100%'
+    border: '3px solid #3b82f6',
+    borderRadius: '16px',
+    maxWidth: '100%',
+    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
   },
   buttonGroup: {
-    marginTop: '15px',
+    marginTop: '24px',
     display: 'flex',
-    gap: '10px',
+    gap: '14px',
     justifyContent: 'center',
     flexWrap: 'wrap'
   },
   button: {
-    padding: '12px 24px',
-    background: '#8B4513',
+    padding: '14px 28px',
+    background: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+  },
+  uploadButton: {
+    padding: '16px 32px',
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
     cursor: 'pointer',
     fontSize: '16px',
-    fontWeight: 'bold'
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
   },
   decodeSection: {
-    padding: '20px',
-    background: '#f9f9f9',
-    borderRadius: '12px',
-    marginBottom: '20px'
+    padding: '48px 32px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    marginBottom: '30px',
+    border: '1px solid #e0e0e0',
+    textAlign: 'center',
+    minHeight: '400px'
+  },
+  sectionTitle: {
+    marginTop: '0',
+    marginBottom: '12px',
+    fontSize: '28px',
+    fontWeight: '600',
+    color: '#333'
+  },
+  decodeDescription: {
+    color: '#666',
+    fontSize: '16px',
+    marginBottom: '32px'
   },
   result: {
-    marginTop: '20px',
-    padding: '15px',
-    background: 'white',
-    borderRadius: '8px'
+    marginTop: '28px',
+    padding: '24px',
+    background: '#ffffff',
+    borderRadius: '10px',
+    textAlign: 'left',
+    border: '1px solid #e0e0e0'
   },
   decodedBox: {
-    marginTop: '10px',
-    padding: '12px',
-    background: '#f3f4f6',
-    borderRadius: '6px',
+    marginTop: '14px',
+    padding: '18px',
+    background: '#f8f9fa',
+    border: '1px solid #e0e0e0',
+    borderRadius: '10px',
     fontFamily: 'monospace',
     fontSize: '14px',
-    maxHeight: '200px',
+    maxHeight: '250px',
     overflow: 'auto',
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word'
   },
   infoSection: {
-    padding: '20px',
-    background: '#e8f5e9',
-    borderRadius: '12px',
-    marginTop: '20px'
+    padding: '32px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    marginTop: '30px',
+    border: '1px solid #e0e0e0'
+  },
+  featureGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '18px',
+    marginTop: '24px'
+  },
+  featureItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '16px',
+    background: '#ffffff',
+    borderRadius: '10px',
+    fontSize: '15px',
+    color: '#333',
+    border: '1px solid #e0e0e0'
   },
   ringStructure: {
     display: 'grid',

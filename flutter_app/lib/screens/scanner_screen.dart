@@ -82,7 +82,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Header
-              const Icon(Icons.qr_code_scanner, size: 64, color: Colors.blue),
+              const Icon(Icons.center_focus_strong, size: 64, color: Colors.blue),
               const SizedBox(height: 20),
               const Text(
                 'Scan Morphing Code',
@@ -259,7 +259,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       children: [
         ElevatedButton.icon(
           onPressed: _pickImageFromCamera,
-          icon: const Icon(Icons.camera_alt),
+          icon: const Icon(Icons.center_focus_strong),
           label: const Text('Take Photo'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
@@ -288,7 +288,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       children: [
         ElevatedButton.icon(
           onPressed: _processSelectedImage,
-          icon: const Icon(Icons.play_arrow),
+          icon: const Icon(Icons.gps_fixed),
           label: const Text('Decode Image'),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),

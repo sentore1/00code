@@ -4,6 +4,7 @@ const AdaptiveShotCode = () => {
   const [inputText, setInputText] = useState('');
   const [codeConfig, setCodeConfig] = useState(null);
   const [decodedText, setDecodedText] = useState('');
+  const [activeTab, setActiveTab] = useState('encode');
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -372,7 +373,7 @@ const AdaptiveShotCode = () => {
 
   useEffect(() => {
     if (inputText) {
-      encode();
+      // Only encode when explicitly triggered
     }
   }, [inputText]);
 
@@ -381,201 +382,343 @@ const AdaptiveShotCode = () => {
       <h1 style={styles.title}>Adaptive ShotCode</h1>
       <p style={styles.subtitle}>Code automatically grows with your data</p>
 
-      <div style={styles.densityBar}>
-        {DENSITY_LEVELS.map((level, idx) => (
-          <div
-            key={level.name}
-            style={{
-              ...styles.densityLevel,
-              background: codeConfig?.index === idx ? level.color : '#f3f4f6',
-              color: codeConfig?.index === idx ? 'white' : '#666'
-            }}
-          >
-            <div style={styles.densityName}>{level.name}</div>
-            <div style={styles.densityCapacity}>{level.capacity}B</div>
-          </div>
-        ))}
-      </div>
-
-      {codeConfig && (
-        <div style={{ ...styles.currentDensity, borderColor: codeConfig.color }}>
-          <strong>Current: {codeConfig.name}</strong> - {codeConfig.rings} rings × {codeConfig.segments} segments
-          <div style={styles.usage}>
-            Using {inputText.length} / {codeConfig.capacity} bytes ({Math.round(inputText.length / codeConfig.capacity * 100)}%)
-          </div>
-        </div>
-      )}
-
-      <div style={styles.inputSection}>
-        <label style={styles.label}>Enter Text (code will adapt automatically):</label>
-        <textarea
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Start typing... watch the code grow!"
-          maxLength={20000}
-          style={styles.textarea}
-        />
-        <div style={styles.charCount}>{inputText.length} characters</div>
-      </div>
-
-      {inputText && (
-        <div style={styles.canvasSection}>
-          <canvas ref={canvasRef} style={styles.canvas} />
-          <div style={styles.buttonGroup}>
-            <button onClick={download} style={styles.button}>
-              Download PNG
-            </button>
-            <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
-              Test Decode
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={styles.decodeSection}>
-        <h3>Decode Adaptive Code</h3>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
-        <button onClick={() => fileInputRef.current?.click()} style={styles.button}>
-          Upload Image
+      {/* Tab Navigation */}
+      <div style={styles.tabContainer}>
+        <button
+          onClick={() => setActiveTab('encode')}
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'encode' ? styles.activeTab : styles.inactiveTab)
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          Encode Message
         </button>
-        
-        {decodedText && (
-          <div style={styles.result}>
-            <strong>Decoded Text:</strong>
-            <div style={styles.decodedBox}>{decodedText}</div>
-          </div>
-        )}
+        <button
+          onClick={() => setActiveTab('decode')}
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'decode' ? styles.activeTab : styles.inactiveTab)
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Decode Image
+        </button>
       </div>
+
+      {/* Encode Tab */}
+      {activeTab === 'encode' && (
+        <>
+          <div style={styles.densityBar}>
+            {DENSITY_LEVELS.map((level, idx) => (
+              <div
+                key={level.name}
+                style={{
+                  ...styles.densityLevel,
+                  background: codeConfig?.index === idx ? level.color : '#f8f9fa',
+                  color: codeConfig?.index === idx ? 'white' : '#666',
+                  border: `2px solid ${codeConfig?.index === idx ? level.color : '#e0e0e0'}`
+                }}
+              >
+                <div style={styles.densityName}>{level.name}</div>
+                <div style={styles.densityCapacity}>{level.capacity}B</div>
+              </div>
+            ))}
+          </div>
+
+          {codeConfig && (
+            <div style={{ ...styles.currentDensity, borderColor: codeConfig.color }}>
+              <strong>Current: {codeConfig.name}</strong> - {codeConfig.rings} rings × {codeConfig.segments} segments
+              <div style={styles.usage}>
+                Using {inputText.length} / {codeConfig.capacity} bytes ({Math.round(inputText.length / codeConfig.capacity * 100)}%)
+              </div>
+            </div>
+          )}
+
+          <div style={styles.inputSection}>
+            <label style={styles.label}>Enter Text (code will adapt automatically):</label>
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Start typing... watch the code grow!"
+              maxLength={20000}
+              style={styles.textarea}
+            />
+            <div style={styles.charCount}>{inputText.length} characters</div>
+          </div>
+
+          {inputText && (
+            <div style={styles.canvasSection}>
+              <canvas ref={canvasRef} style={styles.canvas} />
+              <div style={styles.buttonGroup}>
+                <button onClick={download} style={styles.button}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </button>
+                <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Test Decode
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Decode Tab */}
+      {activeTab === 'decode' && (
+        <div style={styles.decodeSection}>
+          <h3 style={styles.sectionTitle}>Scan Code Image</h3>
+          <p style={styles.decodeDescription}>Upload an Adaptive ShotCode image to decode the message</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+          <button onClick={() => fileInputRef.current?.click()} style={styles.uploadButton}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload Image
+          </button>
+          
+          {decodedText && (
+            <div style={styles.result}>
+              <strong>Decoded ({decodedText.length} chars):</strong>
+              <div style={styles.decodedBox}>{decodedText}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
 const styles = {
   container: {
-    padding: '20px',
-    maxWidth: '900px',
-    margin: '0 auto'
+    padding: '60px 40px',
+    maxWidth: '1400px',
+    margin: '0 auto',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    background: '#ffffff'
   },
   title: {
     textAlign: 'center',
-    fontSize: '32px',
-    marginBottom: '8px'
+    fontSize: '42px',
+    marginBottom: '12px',
+    color: '#1a1a1a',
+    fontWeight: '700'
   },
   subtitle: {
     textAlign: 'center',
     color: '#666',
-    marginBottom: '30px'
+    marginBottom: '40px',
+    fontSize: '18px'
+  },
+  tabContainer: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '40px',
+    justifyContent: 'center',
+    borderBottom: '2px solid #e0e0e0',
+    paddingBottom: '0'
+  },
+  tab: {
+    padding: '16px 32px',
+    border: 'none',
+    borderBottom: '3px solid transparent',
+    background: 'transparent',
+    cursor: 'pointer',
+    fontSize: '16px',
+    fontWeight: '600',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '-2px'
+  },
+  activeTab: {
+    color: '#3b82f6',
+    borderBottomColor: '#3b82f6'
+  },
+  inactiveTab: {
+    color: '#666',
+    borderBottomColor: 'transparent'
   },
   densityBar: {
     display: 'flex',
-    gap: '8px',
-    marginBottom: '20px'
+    gap: '12px',
+    marginBottom: '24px'
   },
   densityLevel: {
     flex: 1,
-    padding: '12px 8px',
-    borderRadius: '8px',
+    padding: '16px 12px',
+    borderRadius: '12px',
     textAlign: 'center',
-    fontSize: '12px',
-    transition: 'all 0.3s'
+    fontSize: '13px',
+    transition: 'all 0.3s',
+    fontWeight: '600'
   },
   densityName: {
-    fontWeight: 'bold',
-    marginBottom: '4px'
+    fontWeight: '700',
+    marginBottom: '6px',
+    fontSize: '14px'
   },
   densityCapacity: {
-    fontSize: '11px',
-    opacity: 0.8
+    fontSize: '12px',
+    opacity: 0.9
   },
   currentDensity: {
-    padding: '15px',
-    background: '#f9f9f9',
-    borderRadius: '8px',
-    marginBottom: '20px',
+    padding: '20px',
+    background: '#f8f9fa',
+    borderRadius: '12px',
+    marginBottom: '24px',
     border: '3px solid',
-    textAlign: 'center'
+    textAlign: 'center',
+    fontSize: '15px'
   },
   usage: {
-    marginTop: '8px',
+    marginTop: '10px',
     fontSize: '14px',
     color: '#666'
   },
   inputSection: {
-    marginBottom: '20px'
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
   },
   label: {
     display: 'block',
-    marginBottom: '8px',
-    fontWeight: 'bold'
+    marginBottom: '14px',
+    fontWeight: '600',
+    fontSize: '16px',
+    color: '#333'
   },
   textarea: {
     width: '100%',
-    padding: '12px',
-    fontSize: '14px',
-    border: '2px solid #ddd',
-    borderRadius: '8px',
+    padding: '18px',
+    fontSize: '15px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '10px',
     boxSizing: 'border-box',
-    minHeight: '120px',
+    minHeight: '140px',
     fontFamily: 'monospace',
-    resize: 'vertical'
+    resize: 'vertical',
+    transition: 'border-color 0.2s',
+    outline: 'none',
+    background: '#ffffff'
   },
   charCount: {
     textAlign: 'right',
     color: '#999',
     fontSize: '14px',
-    marginTop: '5px'
+    marginTop: '10px'
   },
   canvasSection: {
     textAlign: 'center',
-    marginBottom: '30px'
+    marginBottom: '50px',
+    background: '#f8f9fa',
+    padding: '32px',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
   },
   canvas: {
-    border: '2px solid #ddd',
-    borderRadius: '12px',
+    border: '3px solid #3b82f6',
+    borderRadius: '16px',
     maxWidth: '100%',
-    background: '#f9f9f9'
+    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
   },
   buttonGroup: {
-    marginTop: '15px',
+    marginTop: '24px',
     display: 'flex',
-    gap: '10px',
-    justifyContent: 'center'
+    gap: '14px',
+    justifyContent: 'center',
+    flexWrap: 'wrap'
   },
   button: {
-    padding: '12px 24px',
+    padding: '14px 28px',
     background: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+  },
+  uploadButton: {
+    padding: '16px 32px',
+    background: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
     cursor: 'pointer',
     fontSize: '16px',
-    fontWeight: 'bold'
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
   },
   decodeSection: {
-    padding: '20px',
-    background: '#f9f9f9',
-    borderRadius: '12px'
+    padding: '48px 32px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    marginBottom: '30px',
+    border: '1px solid #e0e0e0',
+    textAlign: 'center',
+    minHeight: '400px'
+  },
+  sectionTitle: {
+    marginTop: '0',
+    marginBottom: '12px',
+    fontSize: '28px',
+    fontWeight: '600',
+    color: '#333'
+  },
+  decodeDescription: {
+    color: '#666',
+    fontSize: '16px',
+    marginBottom: '32px'
   },
   result: {
-    marginTop: '20px',
-    padding: '15px',
-    background: 'white',
-    borderRadius: '8px'
+    marginTop: '32px',
+    padding: '24px',
+    background: '#ffffff',
+    borderRadius: '10px',
+    textAlign: 'left',
+    border: '1px solid #e0e0e0'
   },
   decodedBox: {
-    marginTop: '10px',
-    padding: '12px',
-    background: '#f3f4f6',
-    borderRadius: '6px',
+    marginTop: '14px',
+    padding: '18px',
+    background: '#f8f9fa',
+    border: '1px solid #e0e0e0',
+    borderRadius: '10px',
     fontFamily: 'monospace',
     fontSize: '14px',
-    maxHeight: '200px',
+    maxHeight: '250px',
     overflow: 'auto',
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word'

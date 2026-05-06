@@ -683,7 +683,7 @@ const AfricanArtCode = () => {
 
   useEffect(() => {
     if (inputText) {
-      encode();
+      // Only encode when explicitly triggered
     }
   }, [inputText, artStyle]);
 

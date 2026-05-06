@@ -248,11 +248,28 @@ const ShotCodeScanner = () => {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>ShotCode Scanner</h1>
+      <p style={styles.subtitle}>Point your camera at a ShotCode to scan it</p>
       
       {!scanning && !decodedText && (
         <div style={styles.instructions}>
-          <p>Point your camera at a ShotCode to scan it</p>
+          <div style={styles.iconContainer}>
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </div>
+          <p style={styles.instructionText}>Ready to scan</p>
           <button onClick={startScanning} style={styles.button}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
             Start Camera
           </button>
         </div>
@@ -271,7 +288,10 @@ const ShotCodeScanner = () => {
             <p style={styles.scanText}>Scanning...</p>
           </div>
           <button onClick={stopScanning} style={styles.stopButton}>
-            Stop
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <rect x="6" y="6" width="12" height="12" />
+            </svg>
+            Stop Camera
           </button>
         </div>
       )}
@@ -280,14 +300,28 @@ const ShotCodeScanner = () => {
       
       {error && (
         <div style={styles.error}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" style={{ marginRight: '8px' }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
           {error}
         </div>
       )}
       
       {decodedText && (
         <div style={styles.result}>
+          <div style={styles.successIcon}>
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="16 8 10 14 8 12" />
+            </svg>
+          </div>
           <h2 style={styles.resultTitle}>Decoded Successfully!</h2>
           <div style={styles.confidence}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '6px' }}>
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
             Confidence: {confidence}%
           </div>
           <div style={styles.textBox}>
@@ -297,6 +331,9 @@ const ShotCodeScanner = () => {
             setDecodedText('');
             setConfidence(0);
           }} style={styles.button}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            </svg>
             Scan Another
           </button>
         </div>
@@ -307,37 +344,62 @@ const ShotCodeScanner = () => {
 
 const styles = {
   container: {
-    padding: '20px',
-    maxWidth: '600px',
+    padding: '60px 40px',
+    maxWidth: '800px',
     margin: '0 auto',
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     minHeight: '100vh',
-    background: '#f5f5f5'
+    background: '#ffffff'
   },
   title: {
     textAlign: 'center',
-    color: '#333',
-    marginBottom: '30px'
+    fontSize: '42px',
+    marginBottom: '12px',
+    color: '#1a1a1a',
+    fontWeight: '700'
+  },
+  subtitle: {
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: '50px',
+    fontSize: '18px'
   },
   instructions: {
     textAlign: 'center',
-    padding: '40px 20px'
+    padding: '60px 40px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    border: '1px solid #e0e0e0'
+  },
+  iconContainer: {
+    marginBottom: '24px'
+  },
+  instructionText: {
+    fontSize: '18px',
+    color: '#666',
+    marginBottom: '24px'
   },
   button: {
-    padding: '15px 30px',
+    padding: '16px 32px',
     background: '#3b82f6',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
-    fontSize: '18px',
-    fontWeight: 'bold',
+    borderRadius: '10px',
+    fontSize: '16px',
+    fontWeight: '600',
     cursor: 'pointer',
-    marginTop: '20px'
+    display: 'inline-flex',
+    alignItems: 'center',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
   },
   scanArea: {
     position: 'relative',
     width: '100%',
-    background: '#000'
+    background: '#000',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
   },
   video: {
     width: '100%',
@@ -358,66 +420,93 @@ const styles = {
   },
   scanBox: {
     width: '80%',
-    maxWidth: '300px',
+    maxWidth: '350px',
     aspectRatio: '1',
-    border: '3px solid #3b82f6',
+    border: '4px solid #3b82f6',
     borderRadius: '50%',
-    boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
+    boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)',
+    position: 'relative'
   },
   scanText: {
     color: 'white',
-    fontSize: '18px',
-    marginTop: '20px',
-    textShadow: '0 2px 4px rgba(0,0,0,0.8)'
+    fontSize: '20px',
+    fontWeight: '600',
+    marginTop: '24px',
+    textShadow: '0 2px 8px rgba(0,0,0,0.8)'
   },
   stopButton: {
     position: 'absolute',
-    bottom: '20px',
+    bottom: '30px',
     left: '50%',
     transform: 'translateX(-50%)',
-    padding: '12px 24px',
+    padding: '14px 28px',
     background: '#ef4444',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '10px',
     fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer'
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+    pointerEvents: 'auto'
   },
   error: {
-    padding: '15px',
-    background: '#fee',
-    color: '#c00',
-    borderRadius: '8px',
-    marginTop: '20px'
+    padding: '20px',
+    background: '#fee2e2',
+    color: '#dc2626',
+    borderRadius: '12px',
+    marginTop: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '15px',
+    fontWeight: '500',
+    border: '1px solid #fecaca'
   },
   result: {
-    background: 'white',
-    padding: '20px',
-    borderRadius: '12px',
-    marginTop: '20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    padding: '40px',
+    background: '#f8f9fa',
+    borderRadius: '16px',
+    marginTop: '30px',
+    textAlign: 'center',
+    border: '1px solid #e0e0e0'
+  },
+  successIcon: {
+    marginBottom: '20px'
   },
   resultTitle: {
-    color: '#10b981',
-    marginBottom: '10px'
+    fontSize: '28px',
+    color: '#1a1a1a',
+    marginBottom: '16px',
+    fontWeight: '700'
   },
   confidence: {
-    color: '#666',
-    marginBottom: '15px',
-    fontSize: '14px'
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '8px 16px',
+    background: '#ffffff',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#10b981',
+    marginBottom: '24px',
+    border: '1px solid #e0e0e0'
   },
   textBox: {
-    background: '#f9f9f9',
-    padding: '15px',
-    borderRadius: '8px',
+    padding: '24px',
+    background: '#ffffff',
+    border: '1px solid #e0e0e0',
+    borderRadius: '12px',
+    marginBottom: '24px',
+    fontFamily: 'monospace',
+    fontSize: '15px',
     maxHeight: '300px',
     overflow: 'auto',
-    marginBottom: '20px',
-    fontSize: '14px',
-    fontFamily: 'monospace',
     whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word'
+    wordBreak: 'break-word',
+    textAlign: 'left',
+    color: '#333'
   }
 };
 
