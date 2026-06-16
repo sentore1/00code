@@ -134,7 +134,7 @@ const AdaptiveShotCode = () => {
     console.log('=== ADAPTIVE ENCODING ===');
     console.log('Text length:', inputText.length);
     console.log('Selected density:', density.name);
-    console.log('Configuration:', rings, 'rings ×', segments, 'segments');
+    console.log('Configuration:', rings, 'rings Ã—', segments, 'segments');
     console.log('Capacity:', density.capacity, 'bytes');
     
     // Compress
@@ -235,13 +235,13 @@ const AdaptiveShotCode = () => {
     for (let i = 0; i < DENSITY_LEVELS.length; i++) {
       const density = DENSITY_LEVELS[i];
       console.log(`\n--- Trying ${density.name} (index ${i}) ---`);
-      console.log(`Configuration: ${density.rings} rings × ${density.segments} segments`);
+      console.log(`Configuration: ${density.rings} rings Ã— ${density.segments} segments`);
       console.log(`Total capacity: ${density.rings * density.segments} bits`);
       
       try {
         const result = decodeWithDensity(ctx, width, height, density, getPixel, center, scale);
         
-        console.log(`✓ Decode succeeded!`);
+        console.log(`âœ“ Decode succeeded!`);
         console.log(`  Header density index: ${result.densityIndex}`);
         console.log(`  Text length from header: ${result.textLength}`);
         console.log(`  Actual decoded length: ${result.text.length}`);
@@ -252,24 +252,24 @@ const AdaptiveShotCode = () => {
         
         // Check if density index matches
         if (result.densityIndex === i) {
-          console.log(`✓✓✓ PERFECT MATCH! Density index matches.`);
+          console.log(`âœ“âœ“âœ“ PERFECT MATCH! Density index matches.`);
           return result; // Return immediately on perfect match
         } else {
-          console.log(`⚠ Density mismatch (expected ${i}, got ${result.densityIndex})`);
+          console.log(`âš  Density mismatch (expected ${i}, got ${result.densityIndex})`);
           // Still keep it as a candidate if text looks valid
           if (result.text.length > 0 && result.text.length === result.textLength) {
             validResults.push({ ...result, indexMatch: false, expectedIndex: i });
           }
         }
       } catch (err) {
-        console.log(`✗ Failed with error: ${err.message}`);
+        console.log(`âœ— Failed with error: ${err.message}`);
         allAttempts.push({ success: false, density: density.name, error: err.message });
       }
     }
     
     // If no perfect match, try to find the best candidate
     if (validResults.length > 0) {
-      console.log(`\n⚠ No perfect match found, but have ${validResults.length} candidates`);
+      console.log(`\nâš  No perfect match found, but have ${validResults.length} candidates`);
       
       // Sort by confidence
       validResults.sort((a, b) => b.confidence - a.confidence);
@@ -355,7 +355,7 @@ const AdaptiveShotCode = () => {
     
     // Don't throw error on invalid density index, just note it
     if (densityIndex < 0 || densityIndex >= DENSITY_LEVELS.length) {
-      console.log(`⚠ Unusual density index: ${densityIndex}`);
+      console.log(`âš  Unusual density index: ${densityIndex}`);
     }
     
     // Extract data
@@ -405,7 +405,7 @@ const AdaptiveShotCode = () => {
           setCodeConfig(DENSITY_LEVELS[result.densityIndex]);
         } catch (error) {
           console.error('Decode error:', error);
-          setDecodedText('[ERROR] ' + error.message + '\n\nTips:\n• Make sure this is an Adaptive ShotCode image\n• Try encoding and decoding a test message first\n• Check browser console for detailed logs');
+          setDecodedText('[ERROR] ' + error.message + '\n\nTips:\nâ€¢ Make sure this is an Adaptive ShotCode image\nâ€¢ Try encoding and decoding a test message first\nâ€¢ Check browser console for detailed logs');
         }
       };
       img.onerror = () => {
@@ -477,12 +477,12 @@ const AdaptiveShotCode = () => {
       }
       
       const message = 
-        `${match ? '✓' : '✗'} DECODE ${match ? 'SUCCESS' : 'FAILED'}\n\n` +
+        `${match ? 'âœ“' : 'âœ—'} DECODE ${match ? 'SUCCESS' : 'FAILED'}\n\n` +
         `Density: ${result.density}\n` +
         `Confidence: ${result.confidence.toFixed(1)}%\n\n` +
         `Original: ${inputText.length} chars\n` +
         `Decoded: ${result.text.length} chars\n\n` +
-        `Match: ${match ? '✓ YES - Perfect!' : '✗ NO - Mismatch'}\n\n` +
+        `Match: ${match ? 'âœ“ YES - Perfect!' : 'âœ— NO - Mismatch'}\n\n` +
         (match ? 'The code can be read correctly!' : 'Check browser console (F12) for details');
       
       alert(message);
@@ -495,7 +495,7 @@ const AdaptiveShotCode = () => {
       console.error('Error stack:', error.stack);
       
       alert(
-        `✗ DECODE FAILED\n\n` +
+        `âœ— DECODE FAILED\n\n` +
         `Error: ${error.message}\n\n` +
         `Check browser console (F12) for detailed logs.\n` +
         `Make sure you clicked "Generate Code" first!`
@@ -517,362 +517,208 @@ const AdaptiveShotCode = () => {
     }
   }, [inputText]);
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Adaptive ShotCode</h1>
-      <p style={styles.subtitle}>Code automatically grows with your data</p>
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerated, setIsGenerated]   = useState(false);
+  const [previewUrl, setPreviewUrl]     = useState('');
+  const [decodeError, setDecodeError]   = useState('');
+  const [decodeInfo, setDecodeInfo]     = useState(null);
+  const [isDecoding, setIsDecoding]     = useState(false);
 
-      {/* Tab Navigation */}
-      <div style={styles.tabContainer}>
-        <button
-          onClick={() => setActiveTab('encode')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'encode' ? styles.activeTab : styles.inactiveTab)
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-          Encode Message
-        </button>
-        <button
-          onClick={() => setActiveTab('decode')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'decode' ? styles.activeTab : styles.inactiveTab)
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          Decode Image
-        </button>
+  const t = {
+    bg:'#ffffff', text:'#000000', textMuted:'#666', textDim:'#999',
+    inputBg:'#ffffff', inputBorder:'#d1d5db', inputText:'#111',
+    btnBg:'#000000', btnText:'#ffffff',
+    tabActive:'#000000', tabInactive:'#aaa', tabBorder:'#e5e5e5',
+    stepLabel:'#999', border:'#e5e5e5', chipBg:'#f0f0f0', chipText:'#555',
+    uploadBorder:'#d1d5db', errorBg:'#fff5f5', errorBorder:'#fecaca', errorText:'#dc2626',
+    resultBg:'#f8f8f8', decodedBg:'#ffffff',
+  };
+
+  const wrapEncode = () => {
+    if (!inputText || !canvasRef.current) return;
+    setIsGenerating(true);
+    setTimeout(() => {
+      encode();
+      setPreviewUrl(canvasRef.current.toDataURL('image/png'));
+      setIsGenerated(true);
+      setIsGenerating(false);
+    }, 50);
+  };
+
+  const wrapFileUpload = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    setIsDecoding(true); setDecodedText(''); setDecodeError(''); setDecodeInfo(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+        const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+        try {
+          const result = decode(ctx, img.width, img.height);
+          setDecodedText(result.text);
+          setDecodeInfo({ chars: result.text.length, density: result.density, confidence: Math.round(result.confidence) });
+          setCodeConfig(DENSITY_LEVELS[result.densityIndex]);
+        } catch (err) { setDecodeError(err.message); }
+        setIsDecoding(false);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file); e.target.value = '';
+  };
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
+        {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
+          <button key={key} onClick={() => setActiveTab(key)} style={{
+            padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
+            borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
+            color: activeTab===key ? t.tabActive : t.tabInactive,
+            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            cursor:'pointer', marginBottom:'-1px',
+          }}>{label}</button>
+        ))}
       </div>
 
-      {/* Encode Tab */}
+      {/* â”€â”€ ENCODE â”€â”€ */}
       {activeTab === 'encode' && (
         <>
-          <div style={styles.densityBar}>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>SELECT DENSITY</span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', marginBottom:'28px' }}>
             {DENSITY_LEVELS.map((level, idx) => (
-              <button
-                key={level.name}
-                onClick={() => setCodeConfig({ ...level, index: idx })}
-                style={{
-                  ...styles.densityLevel,
-                  background: codeConfig?.index === idx ? level.color : '#f8f9fa',
-                  color: codeConfig?.index === idx ? 'white' : '#666',
-                  border: `2px solid ${codeConfig?.index === idx ? level.color : '#e0e0e0'}`,
-                  cursor: 'pointer'
-                }}
-              >
-                <div style={styles.densityName}>{level.name}</div>
-                <div style={styles.densityCapacity}>{level.capacity}B</div>
+              <button key={level.name} onClick={() => setCodeConfig({ ...level, index: idx })} style={{
+                padding:'10px 8px', border:`2px solid ${codeConfig?.index===idx ? '#000' : t.border}`,
+                borderRadius:'8px', background: codeConfig?.index===idx ? '#000' : t.inputBg,
+                color: codeConfig?.index===idx ? '#fff' : t.text,
+                cursor:'pointer', textAlign:'center',
+              }}>
+                <div style={{ fontSize:'12px', fontWeight:'700' }}>{level.name}</div>
+                <div style={{ fontSize:'10px', opacity:0.7, marginTop:'2px' }}>{level.capacity}B</div>
               </button>
             ))}
           </div>
 
-          <div style={styles.inputSection}>
-            <label style={styles.label}>Enter Text (code will adapt automatically):</label>
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Start typing... watch the code grow!"
-              maxLength={20000}
-              style={styles.textarea}
-            />
-            <div style={styles.charCount}>{inputText.length} characters</div>
-            
-            <button 
-              onClick={encode} 
-              disabled={!inputText}
-              style={{
-                ...styles.button,
-                marginTop: '16px',
-                opacity: inputText ? 1 : 0.5,
-                cursor: inputText ? 'pointer' : 'not-allowed',
-                transition: 'none',
-                transform: 'none'
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-              Generate Code
-            </button>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>02</span>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
           </div>
+          <textarea value={inputText} onChange={e => setInputText(e.target.value)}
+            placeholder="Start typing... code adapts automatically" maxLength={20000}
+            style={{ width:'100%', minHeight:'160px', padding:'16px', fontSize:'14px', lineHeight:'1.6',
+              background:t.inputBg, color:t.inputText, border:`1px solid ${t.inputBorder}`,
+              borderRadius:'8px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
+          />
+          <div style={{ textAlign:'right', fontSize:'12px', color:t.textDim, margin:'6px 0 24px' }}>
+            {inputText.length} / 20,000 characters
+          </div>
+          <canvas ref={canvasRef} style={{ display:'none' }} />
+          <button onClick={wrapEncode} disabled={!inputText||isGenerating} style={{
+            width:'100%', padding:'18px 24px',
+            background:(!inputText||isGenerating)?'#e0e0e0':t.btnBg,
+            color:(!inputText||isGenerating)?t.textDim:t.btnText,
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            letterSpacing:'0.08em', textTransform:'uppercase',
+            cursor:(!inputText||isGenerating)?'not-allowed':'pointer',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              {isGenerating && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+              {isGenerating ? 'Generating...' : 'Generate Code'}
+            </span>
+            {!isGenerating && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+          </button>
 
-          {codeGenerated && (
-            <div style={styles.canvasSection}>
-              <canvas ref={canvasRef} style={styles.canvas} />
-              <div style={styles.buttonGroup}>
-                <button onClick={download} style={styles.button}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download
-                </button>
-                <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Test Decode
-                </button>
-              </div>
+          {isGenerated && previewUrl && (
+            <div style={{ marginTop:'32px', borderTop:`1px solid ${t.border}`, paddingTop:'24px' }}>
+              {codeConfig && (
+                <div style={{ display:'flex', gap:'8px', marginBottom:'16px' }}>
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>
+                    {codeConfig.name} density
+                  </span>
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>
+                    {codeConfig.capacity}B capacity
+                  </span>
+                </div>
+              )}
+              <img src={previewUrl} alt="Adaptive ShotCode preview"
+                style={{ width:'100%', borderRadius:'8px', border:`1px solid ${t.border}`, display:'block', marginBottom:'16px' }} />
+              <button onClick={download} style={{
+                padding:'9px 18px', background:'transparent', color:t.text,
+                border:`1px solid ${t.border}`, borderRadius:'8px', fontSize:'13px',
+                fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'6px',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </button>
             </div>
           )}
         </>
       )}
 
-      {/* Decode Tab */}
+      {/* â”€â”€ DECODE â”€â”€ */}
       {activeTab === 'decode' && (
-        <div style={styles.decodeSection}>
-          <h3 style={styles.sectionTitle}>Scan Code Image</h3>
-          <p style={styles.decodeDescription}>Upload an Adaptive ShotCode image to decode the message</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
-          <button onClick={() => fileInputRef.current?.click()} style={styles.uploadButton}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
+        <>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
+          </div>
+          <div onClick={() => fileInputRef.current?.click()} style={{
+            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+            display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
+            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            Upload Image
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />
+          <button onClick={() => fileInputRef.current?.click()} disabled={isDecoding} style={{
+            width:'100%', padding:'18px 24px',
+            background:isDecoding?'#e0e0e0':t.btnBg, color:isDecoding?t.textDim:t.btnText,
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            letterSpacing:'0.08em', textTransform:'uppercase',
+            cursor:isDecoding?'not-allowed':'pointer',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              {isDecoding && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+              {isDecoding ? 'Decoding...' : 'Decode Image'}
+            </span>
+            {!isDecoding && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
           </button>
-          
-          {decodedText && (
-            <div style={styles.result}>
-              <strong>Decoded ({decodedText.length} chars):</strong>
-              <div style={styles.decodedBox}>{decodedText}</div>
+
+          {decodeError && (
+            <div style={{ marginTop:'20px', padding:'14px 16px', background:t.errorBg, border:`1px solid ${t.errorBorder}`, borderRadius:'6px', color:t.errorText, fontSize:'13px', display:'flex', gap:'8px' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink:0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {decodeError}
             </div>
           )}
-        </div>
+          {decodedText && !decodeError && (
+            <div style={{ marginTop:'24px', padding:'20px', background:t.resultBg, border:`1px solid ${t.border}`, borderRadius:'8px' }}>
+              {decodeInfo && (
+                <div style={{ display:'flex', gap:'8px', marginBottom:'12px', flexWrap:'wrap' }}>
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{decodeInfo.chars} chars</span>
+                  {decodeInfo.density && <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{decodeInfo.density}</span>}
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{decodeInfo.confidence}% confidence</span>
+                </div>
+              )}
+              <p style={{ margin:'0 0 8px', fontSize:'11px', fontWeight:'700', letterSpacing:'0.08em', color:t.textDim }}>DECODED MESSAGE</p>
+              <div style={{ padding:'12px 14px', background:t.decodedBg, border:`1px solid ${t.border}`, borderRadius:'6px', fontFamily:'monospace', fontSize:'13px', lineHeight:'1.6', maxHeight:'200px', overflowY:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', color:t.text }}>
+                {decodedText}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '60px 40px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    background: '#ffffff'
-  },
-  title: {
-    textAlign: 'center',
-    fontSize: '42px',
-    marginBottom: '12px',
-    color: '#1a1a1a',
-    fontWeight: '700'
-  },
-  subtitle: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: '40px',
-    fontSize: '18px'
-  },
-  tabContainer: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '40px',
-    justifyContent: 'center',
-    borderBottom: '2px solid #e0e0e0',
-    paddingBottom: '0'
-  },
-  tab: {
-    padding: '16px 32px',
-    border: 'none',
-    borderBottom: '3px solid transparent',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: '-2px'
-  },
-  activeTab: {
-    color: '#3b82f6',
-    borderBottomColor: '#3b82f6'
-  },
-  inactiveTab: {
-    color: '#666',
-    borderBottomColor: 'transparent'
-  },
-  densityBar: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '24px',
-    justifyContent: 'center'
-  },
-  densityLevel: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    textAlign: 'center',
-    fontSize: '10px',
-    transition: 'all 0.3s',
-    fontWeight: '600',
-    minWidth: '70px'
-  },
-  densityName: {
-    fontWeight: '700',
-    marginBottom: '2px',
-    fontSize: '11px'
-  },
-  densityCapacity: {
-    fontSize: '9px',
-    opacity: 0.9
-  },
-  currentDensity: {
-    padding: '20px',
-    background: '#f8f9fa',
-    borderRadius: '12px',
-    marginBottom: '24px',
-    border: '3px solid',
-    textAlign: 'center',
-    fontSize: '15px'
-  },
-  usage: {
-    marginTop: '10px',
-    fontSize: '14px',
-    color: '#666'
-  },
-  inputSection: {
-    marginBottom: '50px',
-    background: '#f8f9fa',
-    padding: '32px',
-    borderRadius: '16px',
-    border: '1px solid #e0e0e0'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '14px',
-    fontWeight: '600',
-    fontSize: '16px',
-    color: '#333'
-  },
-  textarea: {
-    width: '100%',
-    padding: '18px',
-    fontSize: '15px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
-    boxSizing: 'border-box',
-    minHeight: '140px',
-    fontFamily: 'monospace',
-    resize: 'vertical',
-    transition: 'border-color 0.2s',
-    outline: 'none',
-    background: '#ffffff'
-  },
-  charCount: {
-    textAlign: 'right',
-    color: '#999',
-    fontSize: '14px',
-    marginTop: '10px'
-  },
-  canvasSection: {
-    textAlign: 'center',
-    marginBottom: '50px',
-    background: '#ffffff',
-    padding: '32px',
-    borderRadius: '0',
-    border: 'none'
-  },
-  canvas: {
-    border: 'none',
-    maxWidth: '100%'
-  },
-  buttonGroup: {
-    marginTop: '24px',
-    display: 'flex',
-    gap: '14px',
-    justifyContent: 'center',
-    flexWrap: 'wrap'
-  },
-  button: {
-    padding: '14px 28px',
-    background: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontSize: '15px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-  },
-  uploadButton: {
-    padding: '16px 32px',
-    background: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-  },
-  decodeSection: {
-    padding: '48px 32px',
-    background: '#f8f9fa',
-    borderRadius: '16px',
-    marginBottom: '30px',
-    border: '1px solid #e0e0e0',
-    textAlign: 'center',
-    minHeight: '400px'
-  },
-  sectionTitle: {
-    marginTop: '0',
-    marginBottom: '12px',
-    fontSize: '28px',
-    fontWeight: '600',
-    color: '#333'
-  },
-  decodeDescription: {
-    color: '#666',
-    fontSize: '16px',
-    marginBottom: '32px'
-  },
-  result: {
-    marginTop: '32px',
-    padding: '24px',
-    background: '#ffffff',
-    borderRadius: '10px',
-    textAlign: 'left',
-    border: '1px solid #e0e0e0'
-  },
-  decodedBox: {
-    marginTop: '14px',
-    padding: '18px',
-    background: '#f8f9fa',
-    border: '1px solid #e0e0e0',
-    borderRadius: '10px',
-    fontFamily: 'monospace',
-    fontSize: '14px',
-    maxHeight: '250px',
-    overflow: 'auto',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word'
-  }
 };
 
 export default AdaptiveShotCode;

@@ -79,7 +79,7 @@ body {
 }
 
 .dark .app-container {
-  background: #1a1a1a;
+  background: #0f0f0f;
 }
 
 .dark .app-header {
@@ -283,4 +283,9 @@ body {
   .mode-switch {
     flex-direction: column;
   }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

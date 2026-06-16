@@ -246,9 +246,7 @@ const ShotCodeScanner = () => {
   }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>ShotCode Scanner</h1>
-      <p style={styles.subtitle}>Point your camera at a ShotCode to scan it</p>
+    <div>
       
       {!scanning && !decodedText && (
         <div style={styles.instructions}>

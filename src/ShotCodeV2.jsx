@@ -481,14 +481,182 @@ const ShotCodeV2 = ({ initialText = '' }) => {
   const maxBytes = Math.floor((bitsWithEC - 16) / 8 * 7 / 8); // Account for 7:8 encoding
   const estimatedCapacity = CONFIG.useCompression ? '~12,000+' : maxBytes;
 
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>ShotCode V2 - Ultra High Capacity</h1>
-      <p style={styles.subtitle}>
-        {CONFIG.rings} rings × {CONFIG.segments} segments = {totalBits} bits = <strong>{estimatedCapacity} characters</strong>
-      </p>
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerated, setIsGenerated]   = useState(false);
+  const [previewUrl, setPreviewUrl]     = useState('');
+  const [decodeError, setDecodeError]   = useState('');
+  const [decodeInfo, setDecodeInfo]     = useState(null);
+  const [isDecoding, setIsDecoding]     = useState(false);
 
-      {/* Tab Navigation */}
+  const t = {
+    text:'#000', textMuted:'#666', textDim:'#999',
+    inputBg:'#fff', inputBorder:'#d1d5db', inputText:'#111',
+    btnBg:'#000', btnText:'#fff',
+    tabActive:'#000', tabInactive:'#aaa', tabBorder:'#e5e5e5',
+    stepLabel:'#999', border:'#e5e5e5', chipBg:'#f0f0f0', chipText:'#555',
+    uploadBorder:'#d1d5db', errorBg:'#fff5f5', errorBorder:'#fecaca', errorText:'#dc2626',
+    resultBg:'#f8f8f8', decodedBg:'#fff',
+  };
+
+  const wrapEncode = () => {
+    if (!inputText || !canvasRef.current) return;
+    setIsGenerating(true);
+    setTimeout(() => {
+      encode();
+      setPreviewUrl(canvasRef.current.toDataURL('image/png'));
+      setIsGenerated(true);
+      setIsGenerating(false);
+    }, 50);
+  };
+
+  const wrapFileUpload = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    setIsDecoding(true); setDecodedText(''); setDecodeError(''); setDecodeInfo(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+        const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+        try {
+          const result = decode(ctx, img.width, img.height);
+          setDecodedText(result.text);
+          setConfidence(Math.round(result.confidence));
+          setDecodeInfo({ chars: result.text.length, confidence: Math.round(result.confidence) });
+        } catch (err) { setDecodeError(err.message); }
+        setIsDecoding(false);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file); e.target.value = '';
+  };
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
+        {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
+          <button key={key} onClick={() => setActiveTab(key)} style={{
+            padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
+            borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
+            color: activeTab===key ? t.tabActive : t.tabInactive,
+            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            cursor:'pointer', marginBottom:'-1px',
+          }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ── ENCODE ── */}
+      {activeTab === 'encode' && (
+        <>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
+          </div>
+          <textarea value={inputText} onChange={e => setInputText(e.target.value)}
+            placeholder="Type your message..." maxLength={10000}
+            style={{ width:'100%', minHeight:'160px', padding:'16px', fontSize:'14px', lineHeight:'1.6',
+              background:t.inputBg, color:t.inputText, border:`1px solid ${t.inputBorder}`,
+              borderRadius:'8px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
+          />
+          <div style={{ textAlign:'right', fontSize:'12px', color:t.textDim, margin:'6px 0 24px' }}>
+            {inputText.length} / 10,000 characters
+          </div>
+          <canvas ref={canvasRef} style={{ display:'none' }} />
+          <button onClick={wrapEncode} disabled={!inputText||isGenerating} style={{
+            width:'100%', padding:'18px 24px',
+            background:(!inputText||isGenerating)?'#e0e0e0':t.btnBg,
+            color:(!inputText||isGenerating)?t.textDim:t.btnText,
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            letterSpacing:'0.08em', textTransform:'uppercase',
+            cursor:(!inputText||isGenerating)?'not-allowed':'pointer',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              {isGenerating && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+              {isGenerating ? 'Generating...' : 'Generate Code'}
+            </span>
+            {!isGenerating && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+          </button>
+
+          {isGenerated && previewUrl && (
+            <div style={{ marginTop:'32px', borderTop:`1px solid ${t.border}`, paddingTop:'24px' }}>
+              <img src={previewUrl} alt="ShotCode V2 preview"
+                style={{ width:'100%', borderRadius:'8px', border:`1px solid ${t.border}`, display:'block', marginBottom:'16px' }} />
+              <button onClick={download} style={{
+                padding:'9px 18px', background:'transparent', color:t.text,
+                border:`1px solid ${t.border}`, borderRadius:'8px', fontSize:'13px',
+                fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'6px',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── DECODE ── */}
+      {activeTab === 'decode' && (
+        <>
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
+          </div>
+          <div onClick={() => fileInputRef.current?.click()} style={{
+            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+            display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
+            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />
+          <button onClick={() => fileInputRef.current?.click()} disabled={isDecoding} style={{
+            width:'100%', padding:'18px 24px',
+            background:isDecoding?'#e0e0e0':t.btnBg, color:isDecoding?t.textDim:t.btnText,
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            letterSpacing:'0.08em', textTransform:'uppercase',
+            cursor:isDecoding?'not-allowed':'pointer',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              {isDecoding && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>}
+              {isDecoding ? 'Decoding...' : 'Decode Image'}
+            </span>
+            {!isDecoding && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
+          </button>
+
+          {decodeError && (
+            <div style={{ marginTop:'20px', padding:'14px 16px', background:t.errorBg, border:`1px solid ${t.errorBorder}`, borderRadius:'6px', color:t.errorText, fontSize:'13px', display:'flex', gap:'8px' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink:0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {decodeError}
+            </div>
+          )}
+          {decodedText && !decodeError && (
+            <div style={{ marginTop:'24px', padding:'20px', background:t.resultBg, border:`1px solid ${t.border}`, borderRadius:'8px' }}>
+              {decodeInfo && (
+                <div style={{ display:'flex', gap:'8px', marginBottom:'12px' }}>
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{decodeInfo.chars} chars</span>
+                  <span style={{ padding:'3px 10px', background:t.chipBg, color: decodeInfo.confidence > 90 ? '#10b981' : decodeInfo.confidence > 70 ? '#f59e0b' : '#ef4444', borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{decodeInfo.confidence}% confidence</span>
+                </div>
+              )}
+              <p style={{ margin:'0 0 8px', fontSize:'11px', fontWeight:'700', letterSpacing:'0.08em', color:t.textDim }}>DECODED MESSAGE</p>
+              <div style={{ padding:'12px 14px', background:t.decodedBg, border:`1px solid ${t.border}`, borderRadius:'6px', fontFamily:'monospace', fontSize:'13px', lineHeight:'1.6', maxHeight:'200px', overflowY:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', color:t.text }}>
+                {decodedText}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ShotCodeV2;
       <div style={styles.tabContainer}>
         <button
           onClick={() => setActiveTab('encode')}

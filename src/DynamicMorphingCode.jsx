@@ -1,814 +1,567 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 
-const DynamicMorphingCode = () => {
+const MorphingDropdown = ({ mode, onModeChange, modes, darkMode, onDarkModeToggle }) => {
+  const [open, setOpen] = useState(false);
+  const currentLabel = modes?.find(m => m.value === mode)?.label ?? 'Morphing';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* Pill dropdown — always white */}
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 14px',
+            background: '#ffffff', color: '#111111', border: '1px solid #d1d5db',
+            borderRadius: '10px', fontSize: '13px', fontWeight: '500',
+            cursor: 'pointer', outline: 'none', whiteSpace: 'nowrap',
+            minWidth: '130px', justifyContent: 'space-between',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+          }}
+        >
+          <span>{currentLabel}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+        {open && (
+          <>
+            <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98 }} />
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 99,
+              background: '#ffffff', border: '1px solid #e5e5e5',
+              borderRadius: '10px', overflow: 'hidden',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: '160px',
+            }}>
+              {(modes || []).map(m => (
+                <button key={m.value}
+                  onClick={() => { onModeChange?.(m.value); setOpen(false); }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '10px 16px', border: 'none', outline: 'none',
+                    background: m.value === mode ? '#f4f4f4' : '#ffffff',
+                    color: '#111', fontSize: '13px',
+                    fontWeight: m.value === mode ? '600' : '400', cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f4f4f4'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = m.value === mode ? '#f4f4f4' : '#ffffff'; }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+      {/* Dark mode toggle */}
+      <button onClick={onDarkModeToggle} aria-label="Toggle theme" style={{
+        width: '38px', height: '38px', border: 'none', borderRadius: '8px',
+        background: darkMode ? '#ffffff' : '#111111', color: darkMode ? '#111111' : '#ffffff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+      }}>
+        {darkMode ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+};
+
+const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }) => {
   const [inputText, setInputText] = useState('');
   const [decodedText, setDecodedText] = useState('');
+  const [decodeError, setDecodeError] = useState('');
+  const [decodeInfo, setDecodeInfo] = useState(null);
+  const [isDecoding, setIsDecoding] = useState(false);
   const [scanCount, setScanCount] = useState(0);
   const [morphShape, setMorphShape] = useState('diamond');
   const [rotationAngle, setRotationAngle] = useState(0);
-  const [activeTab, setActiveTab] = useState('encode'); // New state for tabs
-  const [isGenerated, setIsGenerated] = useState(false); // Track if code is generated
+  const [activeTab, setActiveTab] = useState('encode');
+  const [isGenerated, setIsGenerated] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const SHAPE_TYPES = ['diamond', 'triangle', 'hexagon', 'chevron'];
-
   const CONFIG = {
     canvasSize: 2000,
     useCompression: true,
     rings: 50,
     innerRadius: 150,
-    outerRadius: 950
+    outerRadius: 950,
   };
 
+  // ── helpers ──────────────────────────────────────────────────────────────
   const compress = (text) => {
-    let result = '';
-    let i = 0;
+    let result = '', i = 0;
     while (i < text.length) {
-      const char = text[i];
-      if (char === ' ') {
+      if (text[i] === ' ') {
         let count = 1;
-        while (i + count < text.length && text[i + count] === ' ' && count < 255) {
-          count++;
-        }
-        if (count >= 3) {
-          result += '\x01' + String.fromCharCode(count);
-          i += count;
-        } else {
-          result += ' '.repeat(count);
-          i += count;
-        }
-      } else {
-        result += char;
-        i++;
-      }
+        while (i + count < text.length && text[i + count] === ' ' && count < 255) count++;
+        result += count >= 3 ? '\x01' + String.fromCharCode(count) : ' '.repeat(count);
+        i += count;
+      } else { result += text[i++]; }
     }
     return result;
   };
 
-  const decompress = (compressed) => {
-    let result = '';
-    let i = 0;
-    while (i < compressed.length) {
-      if (compressed.charCodeAt(i) === 1) {
-        const count = compressed.charCodeAt(i + 1);
-        result += ' '.repeat(count);
-        i += 2;
-      } else {
-        result += compressed[i];
-        i++;
-      }
+  const decompress = (c) => {
+    let result = '', i = 0;
+    while (i < c.length) {
+      if (c.charCodeAt(i) === 1) { result += ' '.repeat(c.charCodeAt(i + 1)); i += 2; }
+      else { result += c[i++]; }
     }
     return result;
   };
 
   const textToBinary = (text) => {
-    let binary = '';
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(text);
-    
-    for (let i = 0; i < bytes.length; i++) {
-      binary += bytes[i].toString(2).padStart(8, '0');
-    }
-    return binary;
+    const bytes = new TextEncoder().encode(text);
+    return Array.from(bytes).map(b => b.toString(2).padStart(8, '0')).join('');
   };
 
   const binaryToText = (binary) => {
-    let bytes = [];
-    for (let i = 0; i < binary.length; i += 8) {
-      const byte = binary.substring(i, i + 8);
-      if (byte.length === 8) {
-        bytes.push(parseInt(byte, 2));
-      }
-    }
-    
-    try {
-      const decoder = new TextDecoder('utf-8');
-      return decoder.decode(new Uint8Array(bytes));
-    } catch (e) {
-      console.error('UTF-8 decode error:', e);
-      return '';
-    }
+    const bytes = [];
+    for (let i = 0; i + 8 <= binary.length; i += 8)
+      bytes.push(parseInt(binary.substring(i, i + 8), 2));
+    try { return new TextDecoder('utf-8').decode(new Uint8Array(bytes)); } catch { return ''; }
   };
 
-  const decodeLengthWithRedundancy = (binary) => {
-    if (binary.length < 48) return 0;
-    const len1 = parseInt(binary.substring(0, 16), 2);
-    const len2 = parseInt(binary.substring(16, 32), 2);
-    const len3 = parseInt(binary.substring(32, 48), 2);
-    
-    if (len1 === len2) return len1;
-    if (len1 === len3) return len1;
-    if (len2 === len3) return len2;
-    
-    const lengths = [len1, len2, len3].sort((a, b) => a - b);
-    return lengths[1];
+  const decodeLengthWithRedundancy = (b) => {
+    if (b.length < 48) return 0;
+    const [l1, l2, l3] = [parseInt(b.substring(0,16),2), parseInt(b.substring(16,32),2), parseInt(b.substring(32,48),2)];
+    if (l1===l2||l1===l3) return l1;
+    if (l2===l3) return l2;
+    return [l1,l2,l3].sort((a,b)=>a-b)[1];
   };
 
-  // Draw different shapes based on morphShape parameter
   const drawShape = (ctx, x, y, angle, size, bit, shapeType) => {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    
+    ctx.translate(x, y); ctx.rotate(angle);
     ctx.fillStyle = bit === '1' ? '#000000' : '#FFFFFF';
-    ctx.strokeStyle = '#555555';
-    ctx.lineWidth = 0.5;
-
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.5;
+    ctx.beginPath();
     if (shapeType === 'diamond') {
-      ctx.beginPath();
-      ctx.moveTo(0, -size);
-      ctx.lineTo(size, 0);
-      ctx.lineTo(0, size);
-      ctx.lineTo(-size, 0);
-      ctx.closePath();
+      ctx.moveTo(0,-size); ctx.lineTo(size,0); ctx.lineTo(0,size); ctx.lineTo(-size,0);
     } else if (shapeType === 'triangle') {
-      ctx.beginPath();
-      ctx.moveTo(0, -size);
-      ctx.lineTo(size * 0.866, size * 0.5);
-      ctx.lineTo(-size * 0.866, size * 0.5);
-      ctx.closePath();
+      ctx.moveTo(0,-size); ctx.lineTo(size*.866,size*.5); ctx.lineTo(-size*.866,size*.5);
     } else if (shapeType === 'hexagon') {
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const hAngle = (Math.PI / 3) * i;
-        const hx = size * Math.cos(hAngle);
-        const hy = size * Math.sin(hAngle);
-        if (i === 0) ctx.moveTo(hx, hy);
-        else ctx.lineTo(hx, hy);
-      }
-      ctx.closePath();
+      for (let i=0;i<6;i++){const a=(Math.PI/3)*i; i===0?ctx.moveTo(size*Math.cos(a),size*Math.sin(a)):ctx.lineTo(size*Math.cos(a),size*Math.sin(a));}
     } else if (shapeType === 'chevron') {
-      ctx.beginPath();
-      ctx.moveTo(-size, -size);
-      ctx.lineTo(0, 0);
-      ctx.lineTo(size, -size);
-      ctx.lineTo(size, size);
-      ctx.lineTo(-size, size);
-      ctx.closePath();
+      ctx.moveTo(-size,-size); ctx.lineTo(0,0); ctx.lineTo(size,-size); ctx.lineTo(size,size); ctx.lineTo(-size,size);
     }
-
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+    ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
   };
 
   const encode = () => {
     if (!inputText || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const { canvasSize } = CONFIG;
-    
-    canvas.width = canvasSize;
-    canvas.height = canvasSize;
-    ctx.imageSmoothingEnabled = false;
-    
-    console.log('=== DYNAMIC MORPHING CODE ENCODING ===');
-    console.log('Text:', inputText.substring(0, 50));
-    console.log('Scan count:', scanCount);
-    console.log('Shape:', morphShape);
-    console.log('Rotation:', rotationAngle, 'degrees');
-    
-    const textToEncode = CONFIG.useCompression ? compress(inputText) : inputText;
-    const binary = textToBinary(textToEncode);
-    
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(textToEncode);
-    const lengthBits = bytes.length.toString(2).padStart(16, '0');
-    const lengthBitsRedundant = lengthBits + lengthBits + lengthBits;
-    
-    // Add scan count to metadata (8 bits)
-    const scanCountBits = (scanCount % 256).toString(2).padStart(8, '0');
-    
-    // Add shape type to metadata (3 bits)
-    const shapeIndex = SHAPE_TYPES.indexOf(morphShape);
-    const shapeBits = shapeIndex.toString(2).padStart(3, '0');
-    
-    let fullBinary = lengthBitsRedundant + scanCountBits + shapeBits + binary;
-    
-    // Calculate total capacity and add padding
-    const { rings, innerRadius, outerRadius } = CONFIG;
-    const ringWidth = (outerRadius - innerRadius) / rings;
-    let totalCapacity = 0;
-    
-    for (let ring = rings - 1; ring >= 0; ring--) {
-      const r = innerRadius + ring * ringWidth + ringWidth / 2;
-      const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.4;
-      const numShapes = Math.floor(circumference / (shapeSize * 2.2));
-      totalCapacity += numShapes;
-    }
-    
-    // Add alternating padding to fill remaining space
-    if (fullBinary.length < totalCapacity) {
-      const paddingNeeded = totalCapacity - fullBinary.length;
-      console.log('Adding padding:', paddingNeeded, 'bits');
-      for (let i = 0; i < paddingNeeded; i++) {
-        fullBinary += (i % 2).toString();
+    setIsGenerating(true);
+    setTimeout(() => {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const { canvasSize, rings, innerRadius, outerRadius } = CONFIG;
+      canvas.width = canvasSize; canvas.height = canvasSize;
+      ctx.imageSmoothingEnabled = false;
+
+      const textToEncode = CONFIG.useCompression ? compress(inputText) : inputText;
+      const bytes = new TextEncoder().encode(textToEncode);
+      const lb = bytes.length.toString(2).padStart(16,'0');
+      const scanCountBits = (scanCount%256).toString(2).padStart(8,'0');
+      const shapeBits = SHAPE_TYPES.indexOf(morphShape).toString(2).padStart(3,'0');
+      let fullBinary = lb+lb+lb + scanCountBits + shapeBits + textToBinary(textToEncode);
+
+      const ringWidth = (outerRadius - innerRadius) / rings;
+      let totalCapacity = 0;
+      for (let ring=rings-1; ring>=0; ring--) {
+        const r = innerRadius + ring*ringWidth + ringWidth/2;
+        totalCapacity += Math.floor((2*Math.PI*r) / (ringWidth*0.4*2.2));
       }
-    }
-    
-    console.log('Total capacity:', totalCapacity);
-    console.log('Total bits:', fullBinary.length);
-    
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvasSize, canvasSize);
-    
-    const center = canvasSize / 2;
-    
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(center, center, 130, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Draw encoded data with morphing (ringWidth already calculated above)
-    let bitIndex = 0;
-    
-    for (let ring = rings - 1; ring >= 0 && bitIndex < fullBinary.length; ring--) {
-      const r = innerRadius + ring * ringWidth + ringWidth / 2;
-      const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.4;
-      const numShapes = Math.floor(circumference / (shapeSize * 2.2));
-      
-      for (let i = 0; i < numShapes && bitIndex < fullBinary.length; i++) {
-        const angle = (i / numShapes) * Math.PI * 2;
-        const x = center + r * Math.cos(angle);
-        const y = center + r * Math.sin(angle);
-        const bit = fullBinary[bitIndex];
-        
-        // Apply rotation based on scan count
-        const rotatedAngle = angle + Math.PI / 2 + (rotationAngle * Math.PI / 180);
-        
-        drawShape(ctx, x, y, rotatedAngle, shapeSize, bit, morphShape);
-        
-        bitIndex++;
+      for (let i=fullBinary.length; i<totalCapacity; i++) fullBinary += (i%2).toString();
+
+      ctx.fillStyle='#FFF'; ctx.fillRect(0,0,canvasSize,canvasSize);
+      const center = canvasSize/2;
+      ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(center,center,130,0,Math.PI*2); ctx.fill();
+
+      let bitIndex=0;
+      for (let ring=rings-1; ring>=0 && bitIndex<fullBinary.length; ring--) {
+        const r = innerRadius + ring*ringWidth + ringWidth/2;
+        const shapeSize = ringWidth*0.4;
+        const numShapes = Math.floor((2*Math.PI*r) / (shapeSize*2.2));
+        for (let i=0; i<numShapes && bitIndex<fullBinary.length; i++) {
+          const angle = (i/numShapes)*Math.PI*2;
+          drawShape(ctx, center+r*Math.cos(angle), center+r*Math.sin(angle),
+            angle+Math.PI/2+(rotationAngle*Math.PI/180), shapeSize, fullBinary[bitIndex], morphShape);
+          bitIndex++;
+        }
       }
-    }
-    
-    // Draw outer border
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 15;
-    ctx.beginPath();
-    ctx.arc(center, center, 960, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Add metadata text at bottom
-    ctx.fillStyle = '#333333';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Scan #${scanCount} | Shape: ${morphShape}`, center, canvasSize - 30);
-    
-    console.log('Encoded with morphing');
+      ctx.strokeStyle='#000'; ctx.lineWidth=15;
+      ctx.beginPath(); ctx.arc(center,center,960,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='#333'; ctx.font='bold 24px Arial'; ctx.textAlign='center';
+      ctx.fillText(`Scan #${scanCount} | Shape: ${morphShape}`, center, canvasSize-30);
+
+      setPreviewUrl(canvas.toDataURL('image/png'));
+      setIsGenerated(true); setIsGenerating(false);
+    }, 50);
   };
 
   const decodeLayer = (ctx, width, height) => {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    
-    const getPixel = (x, y) => {
-      const px = Math.round(x);
-      const py = Math.round(y);
-      if (px < 0 || px >= width || py < 0 || py >= height) return 255;
-      const i = (py * width + px) * 4;
-      return (data[i] + data[i + 1] + data[i + 2]) / 3;
-    };
-    
-    const center = width / 2;
-    const scale = width / CONFIG.canvasSize;
-    
-    let blackSamples = [];
-    let whiteSamples = [];
-    
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      const r = 65 * scale;
-      const x = center + r * Math.cos(angle);
-      const y = center + r * Math.sin(angle);
-      blackSamples.push(getPixel(x, y));
-    }
-    
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      const r = 970 * scale;
-      const x = center + r * Math.cos(angle);
-      const y = center + r * Math.sin(angle);
-      whiteSamples.push(getPixel(x, y));
-    }
-    
-    const avgBlack = blackSamples.reduce((a, b) => a + b, 0) / blackSamples.length;
-    const avgWhite = whiteSamples.reduce((a, b) => a + b, 0) / whiteSamples.length;
-    const threshold = (avgBlack + avgWhite) / 2;
-    
-    console.log('Threshold:', threshold.toFixed(1));
-    
-    let binary = '';
-    const { rings, innerRadius, outerRadius } = CONFIG;
-    const scaledInner = innerRadius * scale;
-    const scaledOuter = outerRadius * scale;
-    const ringWidth = (scaledOuter - scaledInner) / rings;
-    
-    for (let ring = rings - 1; ring >= 0; ring--) {
-      const r = scaledInner + ring * ringWidth + ringWidth / 2;
-      const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.4;
-      const numShapes = Math.floor(circumference / (shapeSize * 2.2));
-      
-      for (let i = 0; i < numShapes; i++) {
-        const angle = (i / numShapes) * Math.PI * 2;
-        const x = center + r * Math.cos(angle);
-        const y = center + r * Math.sin(angle);
-        
-        let blackCount = 0;
-        let whiteCount = 0;
-        const sampleRadius = shapeSize * 0.5;
-        const gridSize = 15;
-        
-        for (let gx = 0; gx < gridSize; gx++) {
-          for (let gy = 0; gy < gridSize; gy++) {
-            const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize);
-            const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize);
-            const brightness = getPixel(x + dx, y + dy);
-            
-            if (brightness < threshold) blackCount++;
-            else whiteCount++;
-          }
-        }
-        
-        binary += blackCount > whiteCount ? '1' : '0';
+    const { data } = ctx.getImageData(0, 0, width, height);
+    const px = (x,y) => { const p=Math.round(x), q=Math.round(y); if(p<0||p>=width||q<0||q>=height) return 255; const i=(q*width+p)*4; return (data[i]+data[i+1]+data[i+2])/3; };
+    const center=width/2, scale=width/CONFIG.canvasSize;
+    const bs=[],ws=[];
+    for(let i=0;i<20;i++){const a=(i/20)*Math.PI*2; bs.push(px(center+65*scale*Math.cos(a),center+65*scale*Math.sin(a))); ws.push(px(center+970*scale*Math.cos(a),center+970*scale*Math.sin(a)));}
+    const threshold=(bs.reduce((a,b)=>a+b,0)/20 + ws.reduce((a,b)=>a+b,0)/20)/2;
+    let binary='';
+    const { rings,innerRadius,outerRadius } = CONFIG;
+    const ri=innerRadius*scale, ro=outerRadius*scale, rw=(ro-ri)/rings;
+    for(let ring=rings-1;ring>=0;ring--){
+      const r=ri+ring*rw+rw/2, ss=rw*0.4;
+      const n=Math.floor((2*Math.PI*r)/(ss*2.2));
+      for(let i=0;i<n;i++){
+        const angle=(i/n)*Math.PI*2, x=center+r*Math.cos(angle), y=center+r*Math.sin(angle);
+        let bc=0,wc=0;
+        for(let gx=0;gx<15;gx++) for(let gy=0;gy<15;gy++){const b=px(x+(gx-7.5)*(ss/7.5),y+(gy-7.5)*(ss/7.5)); b<threshold?bc++:wc++;}
+        binary += bc>wc?'1':'0';
       }
     }
-    
-    console.log('Total bits decoded:', binary.length);
-    
-    // Decode length
-    const byteLength = decodeLengthWithRedundancy(binary);
-    console.log('Byte length:', byteLength);
-    
-    if (byteLength > 12000 || byteLength === 0) {
-      console.error('Invalid byte length');
-      return { text: '', scanCount: 0, shape: 'unknown' };
-    }
-    
-    // Decode scan count (8 bits after 48-bit length header)
-    const scanCountBits = binary.substring(48, 56);
-    const decodedScanCount = parseInt(scanCountBits, 2);
-    
-    // Decode shape type (3 bits after scan count)
-    const shapeBits = binary.substring(56, 59);
-    const decodedShapeIndex = parseInt(shapeBits, 2);
-    const decodedShape = SHAPE_TYPES[decodedShapeIndex] || 'unknown';
-    
-    // Decode data (after 59 bits of metadata)
-    const dataBits = binary.substring(59, 59 + byteLength * 8);
-    const decodedCompressed = binaryToText(dataBits);
-    const decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
-    
-    console.log('Decoded text:', decoded.substring(0, 50));
-    console.log('Decoded scan count:', decodedScanCount);
-    console.log('Decoded shape:', decodedShape);
-    
-    return { text: decoded, scanCount: decodedScanCount, shape: decodedShape };
+    const byteLength=decodeLengthWithRedundancy(binary);
+    if(byteLength>12000||byteLength===0) throw new Error('Invalid data — is this a Dynamic Morphing Code image?');
+    const decScanCount=parseInt(binary.substring(48,56),2);
+    const decShape=SHAPE_TYPES[parseInt(binary.substring(56,59),2)]||'unknown';
+    const raw=binaryToText(binary.substring(59,59+byteLength*8));
+    return { text: CONFIG.useCompression?decompress(raw):raw, scanCount:decScanCount, shape:decShape };
   };
 
   const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        
+    const file=e.target.files[0]; if(!file) return;
+    setIsDecoding(true); setDecodedText(''); setDecodeError(''); setDecodeInfo(null);
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      const img=new Image();
+      img.onload=()=>{
+        const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+        const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
         try {
-          const result = decodeLayer(ctx, img.width, img.height);
-          setDecodedText(result.text);
-          
-          // Auto-increment scan count and change shape
-          const newScanCount = result.scanCount + 1;
-          setScanCount(newScanCount);
-          
-          // Cycle through shapes
-          const nextShapeIndex = (SHAPE_TYPES.indexOf(result.shape) + 1) % SHAPE_TYPES.length;
-          setMorphShape(SHAPE_TYPES[nextShapeIndex]);
-          
-          // Rotate by 45 degrees each scan
-          setRotationAngle((result.scanCount * 45) % 360);
-          
-          alert(
-            `✓ Decoded Successfully!\n\n` +
-            `Text: ${result.text.substring(0, 50)}${result.text.length > 50 ? '...' : ''}\n` +
-            `Scan Count: ${result.scanCount}\n` +
-            `Shape: ${result.shape}\n\n` +
-            `Next scan will use:\n` +
-            `Shape: ${SHAPE_TYPES[nextShapeIndex]}\n` +
-            `Rotation: ${((newScanCount * 45) % 360)}°`
-          );
-        } catch (error) {
-          console.error('Decode error:', error);
-          setDecodedText('[ERROR: ' + error.message + ']');
-        }
+          const result=decodeLayer(ctx,img.width,img.height);
+          setDecodedText(result.text); setDecodeInfo({scanCount:result.scanCount,shape:result.shape,chars:result.text.length});
+          const ns=result.scanCount+1; setScanCount(ns);
+          const ni=(SHAPE_TYPES.indexOf(result.shape)+1)%SHAPE_TYPES.length; setMorphShape(SHAPE_TYPES[ni]);
+          setRotationAngle((result.scanCount*45)%360);
+        } catch(err){ setDecodeError(err.message); }
+        setIsDecoding(false);
       };
-      img.src = e.target.result;
+      img.src=ev.target.result;
     };
-    reader.readAsDataURL(file);
-  };
-
-  const testDecode = () => {
-    if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    const result = decodeLayer(ctx, canvas.width, canvas.height);
-    const match = inputText === result.text;
-    
-    alert(
-      `Original: ${inputText.length} chars\n` +
-      `Decoded: ${result.text.length} chars\n\n` +
-      `Match: ${match ? 'YES ✓' : 'NO ✗'}\n` +
-      `Scan Count: ${result.scanCount}\n` +
-      `Shape: ${result.shape}`
-    );
+    reader.readAsDataURL(file); e.target.value='';
   };
 
   const download = () => {
-    if (!canvasRef.current) return;
-    const link = document.createElement('a');
-    link.download = `morphing-code-scan${scanCount}.png`;
-    link.href = canvasRef.current.toDataURL('image/png');
-    link.click();
+    if(!previewUrl) return;
+    const a=document.createElement('a'); a.download=`morphing-code-scan${scanCount}.png`; a.href=previewUrl; a.click();
   };
 
   const simulateScan = () => {
-    // Simulate scanning by incrementing scan count and changing shape
-    const newScanCount = scanCount + 1;
-    setScanCount(newScanCount);
-    
-    const nextShapeIndex = (SHAPE_TYPES.indexOf(morphShape) + 1) % SHAPE_TYPES.length;
-    setMorphShape(SHAPE_TYPES[nextShapeIndex]);
-    
-    setRotationAngle((newScanCount * 45) % 360);
+    const ns=scanCount+1; setScanCount(ns);
+    const ni=(SHAPE_TYPES.indexOf(morphShape)+1)%SHAPE_TYPES.length; setMorphShape(SHAPE_TYPES[ni]);
+    setRotationAngle((ns*45)%360);
   };
 
-  useEffect(() => {
-    // Only encode when explicitly triggered, not on every text change
-  }, []);
+
+  // ── theme tokens ─────────────────────────────────────────────────────────
+  const t = darkMode ? {
+    bg:         '#0f0f0f',
+    panelBg:    '#1a1a1a',
+    rightBg:    '#141414',
+    border:     '#2a2a2a',
+    text:       '#ffffff',
+    textMuted:  '#888888',
+    textDim:    '#555555',
+    inputBg:    '#0f0f0f',
+    inputBorder:'#333333',
+    inputText:  '#ffffff',
+    inputPlaceholder: '#444444',
+    btnBg:      '#ffffff',
+    btnText:    '#000000',
+    previewBg:  '#1f1f1f',
+    chipBg:     '#2a2a2a',
+    chipText:   '#aaaaaa',
+    tabActive:  '#ffffff',
+    tabInactive:'#555555',
+    tabBorder:  '#2a2a2a',
+    stepLabel:  '#555555',
+    sectionNum: '#555555',
+    previewLabel:'#666666',
+    timerBg:    '#2a2a2a',
+    timerText:  '#aaaaaa',
+    uploadBorder:'#333333',
+    errorBg:    '#2a0a0a',
+    errorBorder:'#5a1a1a',
+    errorText:  '#ff6b6b',
+    resultBg:   '#1f1f1f',
+    decodedBg:  '#141414',
+  } : {
+    bg:         '#ffffff',
+    panelBg:    '#ffffff',
+    rightBg:    '#f4f4f4',
+    border:     '#e5e5e5',
+    text:       '#000000',
+    textMuted:  '#666666',
+    textDim:    '#999999',
+    inputBg:    '#ffffff',
+    inputBorder:'#d1d5db',
+    inputText:  '#111827',
+    inputPlaceholder: '#9ca3af',
+    btnBg:      '#000000',
+    btnText:    '#ffffff',
+    previewBg:  '#ffffff',
+    chipBg:     '#f0f0f0',
+    chipText:   '#555555',
+    tabActive:  '#000000',
+    tabInactive:'#aaaaaa',
+    tabBorder:  '#e5e5e5',
+    stepLabel:  '#999999',
+    sectionNum: '#999999',
+    previewLabel:'#999999',
+    timerBg:    '#e8e8e8',
+    timerText:  '#555555',
+    uploadBorder:'#d1d5db',
+    errorBg:    '#fff5f5',
+    errorBorder:'#fecaca',
+    errorText:  '#dc2626',
+    resultBg:   '#f8f8f8',
+    decodedBg:  '#ffffff',
+  };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Dynamic Morphing Code</h1>
-      <p style={styles.subtitle}>Code changes shape & rotation with each scan</p>
+    <div style={{ display:'flex', minHeight:'100vh', background: t.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
-      {/* Tab Navigation */}
-      <div style={styles.tabContainer}>
-        <button
-          onClick={() => setActiveTab('encode')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'encode' ? styles.activeTab : styles.inactiveTab)
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-          Encode Message
-        </button>
-        <button
-          onClick={() => setActiveTab('decode')}
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'decode' ? styles.activeTab : styles.inactiveTab)
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          Decode Image
-        </button>
-      </div>
+      {/* ── LEFT PANEL ── */}
+      <div style={{ flex:'0 0 45%', maxWidth:'45%', padding:'40px 56px 80px', background: t.panelBg, display:'flex', flexDirection:'column' }}>
 
-      {/* Encode Tab Content */}
-      {activeTab === 'encode' && (
-        <>
-          <div style={styles.inputSection}>
-            <label style={styles.label}>Enter Your Message (up to 5,000 characters):</label>
+        {/* Logo — top of left panel */}
+        <div style={{ marginBottom: '56px' }}>
+          <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.03em', color: t.text,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+            ocode
+          </span>
+        </div>
+
+        {/* Title */}
+        <h1 style={{ fontSize:'56px', fontWeight:'800', lineHeight:'1.05', letterSpacing:'-0.03em', color: t.text, margin:'0 0 16px' }}>
+          Dynamic<br/>Morphing<br/>Code
+        </h1>
+        <p style={{ fontSize:'15px', color: t.textMuted, margin:'0 0 56px', lineHeight:'1.5' }}>
+          Code changes shape &amp; rotation with each scan.
+        </p>
+
+        {/* Tab switcher */}
+        <div style={{ display:'flex', gap:'0', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'36px' }}>
+          {[['encode','encode'], ['decode','decode image']].map(([key, label]) => (
+            <button key={key} onClick={()=>setActiveTab(key)} style={{
+              padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
+              borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
+              color: activeTab===key ? t.tabActive : t.tabInactive,
+              fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em', textTransform:'uppercase',
+              cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s',
+            }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── ENCODE PANEL ── */}
+        {activeTab === 'encode' && (
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+              <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.stepLabel }}>01</span>
+              <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.stepLabel }}>ENCODE MESSAGE</span>
+            </div>
             <textarea
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type your message..."
+              onChange={(e)=>setInputText(e.target.value)}
+              placeholder="Type your secret message..."
               maxLength={5000}
-              style={styles.textarea}
-            />
-            <div style={styles.charCount}>{inputText.length} / 5,000 characters</div>
-            
-            <button 
-              onClick={encode} 
-              disabled={!inputText}
               style={{
-                ...styles.button,
-                marginTop: '16px',
-                opacity: inputText ? 1 : 0.5,
-                cursor: inputText ? 'pointer' : 'not-allowed'
+                width:'100%', minHeight:'180px', padding:'16px', fontSize:'14px', lineHeight:'1.6',
+                background: t.inputBg, color: t.inputText, border:`1px solid ${t.inputBorder}`,
+                borderRadius:'8px', resize:'vertical', outline:'none', fontFamily:'inherit',
+                boxSizing:'border-box', transition:'border-color 0.15s',
+              }}
+            />
+            <div style={{ textAlign:'right', fontSize:'12px', color: t.textDim, margin:'6px 0 24px' }}>
+              {inputText.length} / 5,000 characters
+            </div>
+            <button
+              onClick={encode}
+              disabled={!inputText || isGenerating}
+              style={{
+                width:'100%', padding:'18px 24px', background: (!inputText||isGenerating) ? (darkMode?'#2a2a2a':'#e0e0e0') : t.btnBg,
+                color: (!inputText||isGenerating) ? t.textDim : t.btnText,
+                border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+                letterSpacing:'0.08em', textTransform:'uppercase', cursor: (!inputText||isGenerating)?'not-allowed':'pointer',
+                display:'flex', alignItems:'center', justifyContent:'space-between',
+                transition:'all 0.15s',
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              </svg>
-              Generate Code
+              <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                {isGenerating && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                )}
+                {isGenerating ? 'Generating...' : 'Generate Code'}
+              </span>
+              {!isGenerating && (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                </svg>
+              )}
             </button>
-          </div>
+            {/* hidden canvas */}
+            <canvas ref={canvasRef} style={{ display:'none' }} />
+          </>
+        )}
 
-          {canvasRef.current && canvasRef.current.width > 0 && (
-            <div style={styles.canvasSection}>
-              <div style={styles.metadata}>
-                <div style={styles.metadataItem}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                  </svg>
-                  <span>Scan Count: <strong>{scanCount}</strong></span>
-                </div>
-                <div style={styles.metadataItem}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                  <span>Shape: <strong>{morphShape}</strong></span>
-                </div>
-                <div style={styles.metadataItem}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  <span>Rotation: <strong>{rotationAngle}°</strong></span>
-                </div>
-              </div>
-              
-              <canvas ref={canvasRef} style={styles.canvas} />
-              
-              <div style={styles.buttonGroup}>
-                <button onClick={download} style={styles.button}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download
-                </button>
-                <button onClick={testDecode} style={{ ...styles.button, background: '#f59e0b' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Test Decode
-                </button>
-                <button onClick={simulateScan} style={{ ...styles.button, background: '#10b981' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
-                  Simulate Scan
-                </button>
-              </div>
+        {/* ── DECODE PANEL ── */}
+        {activeTab === 'decode' && (
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+              <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.stepLabel }}>01</span>
+              <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.stepLabel }}>UPLOAD IMAGE</span>
             </div>
-          )}
-        </>
-      )}
+            <div
+              onClick={()=>fileInputRef.current?.click()}
+              style={{
+                border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'48px 24px',
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', background: t.inputBg, marginBottom:'24px', transition:'border-color 0.15s',
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'12px' }}>
+                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color: t.text }}>Click to upload image</p>
+              <p style={{ margin:0, fontSize:'12px', color: t.textDim }}>PNG, JPG, WEBP</p>
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:'none' }} />
+            <button
+              onClick={()=>fileInputRef.current?.click()}
+              disabled={isDecoding}
+              style={{
+                width:'100%', padding:'18px 24px', background: isDecoding ? (darkMode?'#2a2a2a':'#e0e0e0') : t.btnBg,
+                color: isDecoding ? t.textDim : t.btnText,
+                border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+                letterSpacing:'0.08em', textTransform:'uppercase', cursor: isDecoding?'not-allowed':'pointer',
+                display:'flex', alignItems:'center', justifyContent:'space-between', transition:'all 0.15s',
+              }}
+            >
+              <span style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                {isDecoding && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation:'spin 0.8s linear infinite' }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                )}
+                {isDecoding ? 'Decoding...' : 'Decode Image'}
+              </span>
+              {!isDecoding && (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                </svg>
+              )}
+            </button>
 
-      {/* Decode Tab Content */}
-      {activeTab === 'decode' && (
-        <div style={styles.decodeSection}>
-          <h3 style={styles.sectionTitle}>Scan Code Image</h3>
-          <p style={styles.decodeDescription}>Upload a Dynamic Morphing Code image to decode the message</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
+            {decodeError && (
+              <div style={{ marginTop:'20px', padding:'14px 16px', background: t.errorBg, border:`1px solid ${t.errorBorder}`, borderRadius:'6px', color: t.errorText, fontSize:'13px', display:'flex', gap:'8px' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink:0, marginTop:'1px' }}>
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                {decodeError}
+              </div>
+            )}
+
+            {decodedText && !decodeError && (
+              <div style={{ marginTop:'24px', padding:'20px', background: t.resultBg, border:`1px solid ${t.border}`, borderRadius:'8px' }}>
+                {decodeInfo && (
+                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'14px' }}>
+                    {[`Scan #${decodeInfo.scanCount}`, `Shape: ${decodeInfo.shape}`, `${decodeInfo.chars} chars`].map(chip => (
+                      <span key={chip} style={{ padding:'3px 10px', background: t.chipBg, color: t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>{chip}</span>
+                    ))}
+                  </div>
+                )}
+                <p style={{ margin:'0 0 8px', fontSize:'11px', fontWeight:'700', letterSpacing:'0.08em', color: t.textDim }}>DECODED MESSAGE</p>
+                <div style={{ padding:'12px 14px', background: t.decodedBg, border:`1px solid ${t.border}`, borderRadius:'6px', fontFamily:'monospace', fontSize:'13px', lineHeight:'1.6', maxHeight:'200px', overflowY:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', color: t.text }}>
+                  {decodedText}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── RIGHT PANEL ── */}
+      <div style={{ flex:'1', background: t.rightBg, display:'flex', flexDirection:'column', padding:'40px 56px 80px', borderLeft:`1px solid ${t.border}` }}>
+
+        {/* Top row: nav controls right-aligned */}
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'40px' }}>
+          {/* Dropdown pill */}
+          <MorphingDropdown
+            mode={mode} onModeChange={onModeChange} modes={modes}
+            darkMode={darkMode} onDarkModeToggle={onDarkModeToggle}
           />
-          <button onClick={() => fileInputRef.current?.click()} style={styles.uploadButton}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Upload Image
-          </button>
-          
-          {decodedText && (
-            <div style={styles.result}>
-              <strong>Decoded ({decodedText.length} chars):</strong>
-              <div style={styles.decodedBox}>{decodedText}</div>
+        </div>
+
+        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'28px' }}>
+          <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.sectionNum }}>02</span>
+          <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.previewLabel }}>LIVE MORPHING PREVIEW</span>
+        </div>
+
+        <div style={{ flex:'1', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          {isGenerated && previewUrl ? (
+            <img src={previewUrl} alt="Morphing code preview" style={{ maxWidth:'100%', maxHeight:'520px', borderRadius:'4px', background:'#fff', boxShadow: darkMode ? '0 0 0 1px #2a2a2a' : '0 0 0 1px #e5e5e5' }} />
+          ) : (
+            <div style={{ width:'100%', maxWidth:'420px', aspectRatio:'1', background: darkMode?'#1a1a1a':'#ebebeb', borderRadius:'4px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <p style={{ color: t.textDim, fontSize:'13px', textAlign:'center', lineHeight:'1.6' }}>
+                {isGenerating ? 'Generating...' : 'Generate a code to see the preview'}
+              </p>
             </div>
           )}
         </div>
-      )}
+
+        {/* status bar */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'32px', paddingTop:'20px', borderTop:`1px solid ${t.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <div style={{ width:'8px', height:'8px', borderRadius:'50%', background: isGenerated ? '#22c55e' : (darkMode?'#333':'#ccc') }} />
+            <span style={{ fontSize:'12px', color: t.textMuted }}>
+              {isGenerated ? 'Ready' : 'Waiting for input'}
+            </span>
+          </div>
+          {isGenerated && (
+            <div style={{ display:'flex', gap:'8px' }}>
+              <button onClick={download} style={{ padding:'7px 14px', background: t.chipBg, color: t.chipText, border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:'pointer' }}>
+                Download
+              </button>
+              <button onClick={simulateScan} style={{ padding:'7px 14px', background: t.chipBg, color: t.chipText, border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:'pointer' }}>
+                Simulate Scan
+              </button>
+              <span style={{ padding:'7px 14px', background: t.timerBg, color: t.timerText, borderRadius:'6px', fontSize:'12px', fontWeight:'600' }}>
+                Scan #{scanCount}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
-};
-
-const styles = {
-  container: {
-    padding: '60px 40px',
-    maxWidth: '1400px',
-    margin: '0 auto',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    background: '#ffffff'
-  },
-  title: {
-    textAlign: 'center',
-    fontSize: '42px',
-    marginBottom: '12px',
-    color: '#1a1a1a',
-    fontWeight: '700'
-  },
-  subtitle: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: '40px',
-    fontSize: '18px'
-  },
-  tabContainer: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '40px',
-    justifyContent: 'center',
-    borderBottom: '2px solid #e0e0e0',
-    paddingBottom: '0'
-  },
-  tab: {
-    padding: '16px 32px',
-    border: 'none',
-    borderBottom: '3px solid transparent',
-    background: 'transparent',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.3s',
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: '-2px'
-  },
-  activeTab: {
-    color: '#3b82f6',
-    borderBottomColor: '#3b82f6'
-  },
-  inactiveTab: {
-    color: '#666',
-    borderBottomColor: 'transparent'
-  },
-  inputSection: {
-    marginBottom: '50px',
-    background: '#f8f9fa',
-    padding: '32px',
-    borderRadius: '16px',
-    border: '1px solid #e0e0e0'
-  },
-  label: {
-    display: 'block',
-    marginBottom: '14px',
-    fontWeight: '600',
-    fontSize: '16px',
-    color: '#333'
-  },
-  textarea: {
-    width: '100%',
-    padding: '18px',
-    fontSize: '15px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
-    boxSizing: 'border-box',
-    minHeight: '140px',
-    fontFamily: 'monospace',
-    resize: 'vertical',
-    transition: 'border-color 0.2s',
-    outline: 'none',
-    background: '#ffffff'
-  },
-  charCount: {
-    textAlign: 'right',
-    color: '#999',
-    fontSize: '14px',
-    marginTop: '10px'
-  },
-  metadata: {
-    display: 'flex',
-    gap: '24px',
-    justifyContent: 'center',
-    padding: '24px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '16px',
-    marginBottom: '24px',
-    flexWrap: 'wrap',
-    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.25)'
-  },
-  metadataItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    color: 'white',
-    fontSize: '15px',
-    fontWeight: '500'
-  },
-  canvasSection: {
-    textAlign: 'center',
-    marginBottom: '50px',
-    background: '#f8f9fa',
-    padding: '32px',
-    borderRadius: '16px',
-    border: '1px solid #e0e0e0'
-  },
-  canvas: {
-    border: '3px solid #3b82f6',
-    borderRadius: '16px',
-    maxWidth: '100%',
-    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2)'
-  },
-  buttonGroup: {
-    marginTop: '24px',
-    display: 'flex',
-    gap: '14px',
-    justifyContent: 'center',
-    flexWrap: 'wrap'
-  },
-  button: {
-    padding: '14px 28px',
-    background: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontSize: '15px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-  },
-  uploadButton: {
-    padding: '16px 32px',
-    background: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-  },
-  decodeSection: {
-    padding: '48px 32px',
-    background: '#f8f9fa',
-    borderRadius: '16px',
-    marginBottom: '30px',
-    border: '1px solid #e0e0e0',
-    textAlign: 'center',
-    minHeight: '400px'
-  },
-  sectionTitle: {
-    marginTop: '0',
-    marginBottom: '12px',
-    fontSize: '28px',
-    fontWeight: '600',
-    color: '#333'
-  },
-  decodeDescription: {
-    color: '#666',
-    fontSize: '16px',
-    marginBottom: '32px'
-  },
-  result: {
-    marginTop: '32px',
-    padding: '24px',
-    background: '#ffffff',
-    borderRadius: '10px',
-    textAlign: 'left',
-    border: '1px solid #e0e0e0'
-  },
-  decodedBox: {
-    marginTop: '14px',
-    padding: '18px',
-    background: '#f8f9fa',
-    border: '1px solid #e0e0e0',
-    borderRadius: '10px',
-    fontFamily: 'monospace',
-    fontSize: '14px',
-    maxHeight: '250px',
-    overflow: 'auto',
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word'
-  }
 };
 
 export default DynamicMorphingCode;

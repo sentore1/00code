@@ -750,9 +750,7 @@ const AdvancedMorphingCode = () => {
   }, []);
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Advanced Morphing Code</h1>
-      <p style={styles.subtitle}>Dynamic ring sections • Living data system • 30K capacity</p>
+    <div>
 
       {/* Tab Navigation */}
       <div style={styles.tabContainer}>
