@@ -1,10 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 
-const ImigogoShapeCode = () => {
+const ImigogoShapeCode = ({ onPreviewReady }) => {
   const [inputText, setInputText] = useState('');
   const [shapePattern, setShapePattern] = useState('diamond');
   const [decodedText, setDecodedText] = useState('');
   const [activeTab, setActiveTab] = useState('encode');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerated, setIsGenerated]   = useState(false);
+  const [previewUrl, setPreviewUrl]     = useState('');
+  const [decodeError, setDecodeError]   = useState('');
+  const [decodeInfo, setDecodeInfo]     = useState(null);
+  const [isDecoding, setIsDecoding]     = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -753,14 +759,7 @@ const ImigogoShapeCode = () => {
     }
   }, [inputText, shapePattern]);
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isGenerated, setIsGenerated]   = useState(false);
-  const [previewUrl, setPreviewUrl]     = useState('');
-  const [decodeError, setDecodeError]   = useState('');
-  const [decodeInfo, setDecodeInfo]     = useState(null);
-  const [isDecoding, setIsDecoding]     = useState(false);
-
-  const darkMode = false; // inherits from shell; kept for token reuse
+  const darkMode = false;
   const t = {
     bg:'#ffffff', text:'#000000', textMuted:'#666', textDim:'#999',
     inputBg:'#ffffff', inputBorder:'#d1d5db', inputText:'#111',
@@ -776,9 +775,11 @@ const ImigogoShapeCode = () => {
     setIsGenerating(true);
     setTimeout(() => {
       encode();
-      setPreviewUrl(canvasRef.current.toDataURL('image/png'));
+      const url = canvasRef.current.toDataURL('image/png');
+      setPreviewUrl(url);
       setIsGenerated(true);
       setIsGenerating(false);
+      onPreviewReady?.(url, `Pattern: ${SHAPE_PATTERNS[shapePattern].name}`);
     }, 50);
   };
 
@@ -870,21 +871,12 @@ const ImigogoShapeCode = () => {
             {!isGenerating && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>}
           </button>
 
-          {isGenerated && previewUrl && (
-            <div style={{ marginTop:'32px', borderTop:`1px solid ${t.border}`, paddingTop:'24px' }}>
-              <div style={{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap' }}>
-                <span style={{ padding:'3px 10px', background:t.chipBg, color:t.chipText, borderRadius:'20px', fontSize:'11px', fontWeight:'600' }}>
-                  Pattern: {SHAPE_PATTERNS[shapePattern].name}
-                </span>
-              </div>
-              <img src={previewUrl} alt="Imigongo code preview"
-                style={{ width:'100%', borderRadius:'8px', border:`1px solid ${t.border}`, display:'block', marginBottom:'16px' }} />
-              <button onClick={download} style={{
-                padding:'9px 18px', background:'transparent', color:t.text,
-                border:`1px solid ${t.border}`, borderRadius:'8px', fontSize:'13px',
-                fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'6px',
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          {isGenerated && (
+            <div style={{ marginTop:'20px', display:'flex', alignItems:'center', gap:'12px' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }}/>
+              <span style={{ fontSize:'12px', color:'#666' }}>Code generated — preview on the right</span>
+              <button onClick={download} style={{ marginLeft:'auto', padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Download
               </button>
             </div>

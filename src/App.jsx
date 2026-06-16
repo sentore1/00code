@@ -91,8 +91,22 @@ export const NavBar = ({ mode, onModeChange, darkMode, onDarkModeToggle }) => {
 function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [mode, setMode]         = useState('morphing');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewLabel, setPreviewLabel] = useState('');
 
   const toggleDark = () => setDarkMode(d => !d);
+
+  const handlePreview = (url, label = '') => {
+    setPreviewUrl(url);
+    setPreviewLabel(label);
+  };
+
+  // Reset preview when mode changes
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setPreviewUrl('');
+    setPreviewLabel('');
+  };
 
   const t = {
     bg:       darkMode ? '#0f0f0f' : '#ffffff',
@@ -106,11 +120,11 @@ function App() {
   // Morphing & Dual manage their own full layout
   if (mode === 'morphing') {
     return <DynamicMorphingCode darkMode={darkMode} onDarkModeToggle={toggleDark}
-      mode={mode} onModeChange={setMode} modes={MODES} />;
+      mode={mode} onModeChange={handleModeChange} modes={MODES} />;
   }
   if (mode === 'dual') {
     return <DualLayerCode darkMode={darkMode} onDarkModeToggle={toggleDark}
-      mode={mode} onModeChange={setMode} modes={MODES} />;
+      mode={mode} onModeChange={handleModeChange} modes={MODES} />;
   }
 
   // All other pages use the shared split shell
@@ -151,10 +165,10 @@ function App() {
 
         {/* Component content */}
         <div style={{ flex: 1, padding: '0 56px 80px' }}>
-          {mode === 'advanced' ? <AdvancedMorphingCode /> :
-           mode === 'imigongo' ? <ImigogoShapeCode /> :
-           mode === 'adaptive' ? <AdaptiveShotCode /> :
-           mode === 'encode'   ? <ShotCodeV2 /> :
+          {mode === 'advanced' ? <AdvancedMorphingCode onPreviewReady={handlePreview} /> :
+           mode === 'imigongo' ? <ImigogoShapeCode onPreviewReady={handlePreview} /> :
+           mode === 'adaptive' ? <AdaptiveShotCode onPreviewReady={handlePreview} /> :
+           mode === 'encode'   ? <ShotCodeV2 onPreviewReady={handlePreview} /> :
                                  <ShotCodeScanner />}
         </div>
       </div>
@@ -165,7 +179,7 @@ function App() {
 
         {/* Nav top-right */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
-          <NavBar mode={mode} onModeChange={setMode} darkMode={darkMode} onDarkModeToggle={toggleDark} />
+          <NavBar mode={mode} onModeChange={handleModeChange} darkMode={darkMode} onDarkModeToggle={toggleDark} />
         </div>
 
         {/* Section label */}
@@ -174,23 +188,42 @@ function App() {
           <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: t.textMuted }}>LIVE PREVIEW</span>
         </div>
 
-        {/* Placeholder */}
+        {/* Preview or placeholder */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '100%', maxWidth: '420px', aspectRatio: '1',
-            background: darkMode ? '#1a1a1a' : '#e8e8e8', borderRadius: '4px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <p style={{ color: t.textDim, fontSize: '13px', textAlign: 'center', lineHeight: '1.6', padding: '0 20px' }}>
-              Generate a code to see the preview
-            </p>
-          </div>
+          {previewUrl ? (
+            <div style={{ width: '100%', maxWidth: '460px' }}>
+              {previewLabel && (
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ padding: '3px 10px', background: darkMode ? '#2a2a2a' : '#f0f0f0',
+                    color: darkMode ? '#aaa' : '#555', borderRadius: '20px', fontSize: '11px', fontWeight: '600' }}>
+                    {previewLabel}
+                  </span>
+                </div>
+              )}
+              <img src={previewUrl} alt="Generated code preview"
+                style={{ width: '100%', borderRadius: '6px', display: 'block',
+                  border: `1px solid ${t.border}`,
+                  boxShadow: darkMode ? '0 0 0 1px #2a2a2a' : '0 2px 12px rgba(0,0,0,0.08)' }} />
+            </div>
+          ) : (
+            <div style={{ width: '100%', maxWidth: '420px', aspectRatio: '1',
+              background: darkMode ? '#1a1a1a' : '#e8e8e8', borderRadius: '4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <p style={{ color: t.textDim, fontSize: '13px', textAlign: 'center', lineHeight: '1.6', padding: '0 20px' }}>
+                Generate a code to see the preview
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Status bar */}
         <div style={{ display: 'flex', alignItems: 'center', paddingTop: '20px',
           borderTop: `1px solid ${t.border}`, marginTop: '32px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%',
-            background: darkMode ? '#333' : '#ccc', marginRight: '8px' }}/>
-          <span style={{ fontSize: '12px', color: t.textMuted }}>Waiting for input</span>
+            background: previewUrl ? '#22c55e' : (darkMode ? '#333' : '#ccc'), marginRight: '8px' }}/>
+          <span style={{ fontSize: '12px', color: t.textMuted }}>
+            {previewUrl ? 'Ready' : 'Waiting for input'}
+          </span>
         </div>
       </div>
 
