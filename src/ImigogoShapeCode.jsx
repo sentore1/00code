@@ -1,6 +1,59 @@
 import { useState, useRef, useEffect } from 'react';
 
-const ImigogoShapeCode = ({ onPreviewReady }) => {
+// Single dropdown for pattern selection
+const PatternDropdown = ({ patterns, value, onChange, t }) => {
+  const [open, setOpen] = useState(false);
+  const current = patterns[value];
+  return (
+    <div style={{ position: 'relative', marginBottom: '28px' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', padding: '10px 14px',
+          border: `1px solid ${t.border}`,
+          borderRadius: '8px', background: t.inputBg,
+          color: t.text, cursor: 'pointer', outline: 'none',
+          fontSize: '13px', fontWeight: '500', fontFamily: 'inherit',
+        }}
+      >
+        <span>{current.name}</span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+          style={{ flexShrink: 0 }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 99,
+            background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: '8px',
+            overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          }}>
+            {Object.entries(patterns).map(([key, pattern]) => (
+              <button key={key} onClick={() => { onChange(key); setOpen(false); }} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', padding: '10px 14px',
+                border: 'none', outline: 'none', cursor: 'pointer',
+                background: key === value ? t.border : t.inputBg,
+                color: t.text, fontSize: '13px', fontFamily: 'inherit',
+              }}
+                onMouseEnter={e => { if (key !== value) e.currentTarget.style.background = t.border; }}
+                onMouseLeave={e => { e.currentTarget.style.background = key === value ? t.border : t.inputBg; }}
+              >
+                <span style={{ fontWeight: '500' }}>{pattern.name}</span>
+                <span style={{ fontSize: '11px', opacity: 0.6 }}>{pattern.description}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const ImigogoShapeCode = ({ onPreviewReady, onActionsReady }) => {
   const [inputText, setInputText] = useState('');
   const [shapePattern, setShapePattern] = useState('diamond');
   const [decodedText, setDecodedText] = useState('');
@@ -11,8 +64,24 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
   const [decodeError, setDecodeError]   = useState('');
   const [decodeInfo, setDecodeInfo]     = useState(null);
   const [isDecoding, setIsDecoding]     = useState(false);
+  const [isDragOver, setIsDragOver]     = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Expose download action to parent (App.jsx) for bottom-right status bar
+  useEffect(() => {
+    if (!onActionsReady) return;
+    onActionsReady({
+      download: () => {
+        if (!canvasRef.current) return;
+        const link = document.createElement('a');
+        link.download = `imigongo-${shapePattern}-code.png`;
+        link.href = canvasRef.current.toDataURL('image/png');
+        link.click();
+      },
+      isGenerated,
+    });
+  }, [isGenerated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Imigongo-inspired geometric shapes
   const SHAPE_PATTERNS = {
@@ -805,7 +874,7 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
   };
 
   return (
-    <div>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Tabs */}
       <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
         {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
@@ -813,7 +882,7 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
             padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
             borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
             color: activeTab===key ? t.tabActive : t.tabInactive,
-            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            fontSize:'13px', fontWeight:'500', letterSpacing:'0.04em',
             cursor:'pointer', marginBottom:'-1px',
           }}>{label}</button>
         ))}
@@ -827,19 +896,12 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
             <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
             <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>SELECT PATTERN</span>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'8px', marginBottom:'28px' }}>
-            {Object.entries(SHAPE_PATTERNS).map(([key, pattern]) => (
-              <button key={key} onClick={() => setShapePattern(key)} style={{
-                padding:'10px 12px', border:`2px solid ${shapePattern===key ? t.tabActive : t.border}`,
-                borderRadius:'8px', background: shapePattern===key ? t.tabActive : t.inputBg,
-                color: shapePattern===key ? t.btnText : t.text,
-                cursor:'pointer', textAlign:'left',
-              }}>
-                <div style={{ fontSize:'12px', fontWeight:'700', marginBottom:'2px' }}>{pattern.name}</div>
-                <div style={{ fontSize:'10px', opacity:0.7 }}>{pattern.description}</div>
-              </button>
-            ))}
-          </div>
+          <PatternDropdown
+            patterns={SHAPE_PATTERNS}
+            value={shapePattern}
+            onChange={setShapePattern}
+            t={t}
+          />
 
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
             <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>02</span>
@@ -875,10 +937,6 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
             <div style={{ marginTop:'20px', display:'flex', alignItems:'center', gap:'12px' }}>
               <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }}/>
               <span style={{ fontSize:'12px', color:'#666' }}>Code generated — preview on the right</span>
-              <button onClick={download} style={{ marginLeft:'auto', padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
-              </button>
             </div>
           )}
         </>
@@ -891,15 +949,22 @@ const ImigogoShapeCode = ({ onPreviewReady }) => {
             <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
             <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
           </div>
-          <div onClick={() => fileInputRef.current?.click()} style={{
-            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+          <div onClick={() => fileInputRef.current?.click()}
+            onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={()=>setIsDragOver(false)}
+            onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) wrapFileUpload({target:{files:[file],value:''}});}}
+            style={{
+            border:`2px dashed ${isDragOver?'#000000':t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
             display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
-            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+            background:isDragOver?'#f0f0f0':t.inputBg, marginBottom:'24px', textAlign:'center',
+            transition:'border-color 0.15s, background 0.15s',
           }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragOver?'#000000':t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>
+              {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+            </p>
             <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />

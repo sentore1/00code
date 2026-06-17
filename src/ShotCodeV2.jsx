@@ -1,7 +1,7 @@
 // ShotCodeV2 - Version 2.0 - Fresh reload
 import React, { useState, useRef } from 'react';
 
-const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
+const ShotCodeV2 = ({ initialText = '', onPreviewReady, onActionsReady }) => {
   const [inputText, setInputText] = useState(initialText);
   const [decodedText, setDecodedText] = useState('');
   const [confidence, setConfidence] = useState(0);
@@ -13,8 +13,24 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
   const [decodeError, setDecodeError]   = useState('');
   const [decodeInfo, setDecodeInfo]     = useState(null);
   const [isDecoding, setIsDecoding]     = useState(false);
+  const [isDragOver, setIsDragOver]     = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Expose download action to parent (App.jsx) for bottom-right status bar
+  React.useEffect(() => {
+    if (!onActionsReady) return;
+    onActionsReady({
+      download: () => {
+        if (!canvasRef.current) return;
+        const link = document.createElement('a');
+        link.download = 'shotcode.png';
+        link.href = canvasRef.current.toDataURL('image/png');
+        link.click();
+      },
+      isGenerated,
+    });
+  }, [isGenerated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update when initialText prop changes
   React.useEffect(() => {
@@ -26,16 +42,17 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
 
   // PHILOSOPHER'S APPROACH: Error correction + redundancy
   // Truth: Perfect encoding is impossible, but recoverable encoding is
-  // 240 rings × 360 segments = 86,400 bits with error correction
-  // Real capacity after 30% error correction: ~7,500 bytes = 7,500 chars
+  // Ultra high capacity configuration with enhanced quality
+  // 300 rings × 360 segments = 108,000 bits with error correction
+  // Real capacity after 30% error correction: ~9,400 bytes = 9,400 chars
   const CONFIG = {
-    rings: 240,
+    rings: 300,
     segments: 360,
-    canvasSize: 14400,  // EXTREME: 40px per segment at outer edge
-    outerRadius: 7150,  // Massive diameter
-    innerRadius: 200,   // Stable center
+    canvasSize: 2400,
+    outerRadius: 1180,
+    innerRadius: 20,
     useCompression: true,
-    errorCorrection: 0.3  // 30% redundancy for error recovery
+    errorCorrection: 0.3
   };
 
   // SIMPLE & RELIABLE compression - just RLE for spaces
@@ -199,32 +216,34 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
     if (fullBinary.length < totalCapacity) {
       const paddingNeeded = totalCapacity - fullBinary.length;
       console.log('Adding padding:', paddingNeeded, 'bits');
-      for (let i = 0; i < paddingNeeded; i++) {
-        fullBinary += (i % 2).toString();
-      }
+      fullBinary += Array.from({ length: paddingNeeded }, (_, i) => i % 2).join('');
     }
     
     console.log('Total capacity:', totalCapacity);
     console.log('Total bits to encode:', fullBinary.length);
+    console.log('First 50 bits:', fullBinary.substring(0, 50));
+    console.log('Ones count:', (fullBinary.match(/1/g) || []).length);
+    console.log('Zeros count:', (fullBinary.match(/0/g) || []).length);
     
     // White background - PURE white
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvasSize, canvasSize);
     
-    // Black center - PURE black
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(center, center, innerRadius - 30, 0, Math.PI * 2);
-    ctx.fill();
+    // Black center - PURE black (only if innerRadius is large enough)
+    if (innerRadius > 30) {
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(center, center, innerRadius - 30, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (innerRadius > 0) {
+      // If innerRadius is too small, just fill the available space
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(center, center, Math.max(1, innerRadius - 5), 0, Math.PI * 2);
+      ctx.fill();
+    }
     
-    // Outer border - thicker for better detection
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 20;
-    ctx.beginPath();
-    ctx.arc(center, center, outerRadius, 0, Math.PI * 2);
-    ctx.stroke();
-    
-    // Draw data - OUTER TO INNER with PRECISE boundaries
+    // Draw data FIRST - OUTER TO INNER with PRECISE boundaries
     let bitIndex = 0;
     for (let ring = rings - 1; ring >= 0 && bitIndex < fullBinary.length; ring--) {
       const r1 = innerRadius + ring * ringWidth;
@@ -249,6 +268,13 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
     }
     
     console.log('Encoded', bitIndex, 'bits');
+    
+    // Outer border AFTER data - drawn outside to not cover data
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 20;
+    ctx.beginPath();
+    ctx.arc(center, center, outerRadius + 10, 0, Math.PI * 2);
+    ctx.stroke();
     
     // Mark code as generated
     setCodeGenerated(true);
@@ -280,22 +306,23 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
       return (data[i] + data[i + 1] + data[i + 2]) / 3;
     };
     
-    // Adaptive threshold - sample actual black/white areas
+    // Adaptive threshold - sample actual black/white areas with more samples
     let blackSamples = [];
     let whiteSamples = [];
     
-    // Sample center (black)
-    for (let i = 0; i < 30; i++) {
-      const angle = (i / 30) * Math.PI * 2;
-      const r = (scaledInner - 30) * 0.5;
+    // Sample center (black) - adjust for small innerRadius - MORE SAMPLES
+    const centerSampleRadius = scaledInner > 30 ? (scaledInner - 30) * 0.5 : Math.max(1, (scaledInner - 5) * 0.5);
+    for (let i = 0; i < 100; i++) {
+      const angle = (i / 100) * Math.PI * 2;
+      const r = centerSampleRadius;
       const x = center + r * Math.cos(angle);
       const y = center + r * Math.sin(angle);
       blackSamples.push(getPixel(x, y));
     }
     
-    // Sample outside (white)
-    for (let i = 0; i < 30; i++) {
-      const angle = (i / 30) * Math.PI * 2;
+    // Sample outside (white) - MORE SAMPLES
+    for (let i = 0; i < 100; i++) {
+      const angle = (i / 100) * Math.PI * 2;
       const r = scaledOuter + 50;
       const x = center + r * Math.cos(angle);
       const y = center + r * Math.sin(angle);
@@ -306,14 +333,18 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
     const avgWhite = whiteSamples.reduce((a, b) => a + b, 0) / whiteSamples.length;
     const threshold = (avgBlack + avgWhite) / 2;
     
-    console.log('Black avg:', avgBlack.toFixed(1));
-    console.log('White avg:', avgWhite.toFixed(1));
+    console.log('Black avg:', avgBlack.toFixed(1), 'samples:', blackSamples.length);
+    console.log('White avg:', avgWhite.toFixed(1), 'samples:', whiteSamples.length);
     console.log('Threshold:', threshold.toFixed(1));
+    console.log('Center sample radius:', centerSampleRadius?.toFixed(2) || 'N/A');
     
     // PHYSICS-BASED DECODING: Sample at exact geometric centers
     let binary = '';
     let confidenceSum = 0;
     let segmentCount = 0;
+    
+    // Debug: track first 10 segments
+    let debugSegments = [];
     
     for (let ring = rings - 1; ring >= 0; ring--) {
       const r1 = scaledInner + ring * ringWidth;
@@ -325,10 +356,10 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
         const a2 = ((seg + 1) / segments) * Math.PI * 2;
         const aMid = (a1 + a2) / 2;
         
-        // DENSE GRID SAMPLING: 15x15 = 225 sample points per segment
+        // ULTRA-DENSE GRID SAMPLING: 20x20 = 400 sample points per segment
         let blackCount = 0;
         let whiteCount = 0;
-        const gridSize = 15;
+        const gridSize = 20;
         
         for (let ri = 0; ri < gridSize; ri++) {
           // Sample across full ring width
@@ -358,9 +389,17 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
         confidenceSum += bitConfidence;
         segmentCount++;
         
-        binary += blackCount > whiteCount ? '1' : '0';
+        const bit = blackCount > whiteCount ? '1' : '0';
+        binary += bit;
+        
+        // Debug first 10 segments
+        if (debugSegments.length < 10) {
+          debugSegments.push({ ring, seg, blackCount, whiteCount, bit, r1: r1.toFixed(1), r2: r2.toFixed(1) });
+        }
       }
     }
+    
+    console.log('First 10 decoded segments:', debugSegments);
     
     const avgConfidence = (confidenceSum / segmentCount) * 100;
     
@@ -373,9 +412,12 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
     
     console.log('Length bits:', lengthBits);
     console.log('Text length:', textLength);
+    console.log('First 100 bits:', binary.substring(0, 100));
     
     if (textLength > 10000 || textLength === 0) {
       console.error('Invalid length:', textLength);
+      console.error('This usually means the decoder cannot read the encoded pattern correctly');
+      console.error('Check: image quality, center detection, ring alignment');
       return { text: '[ERROR: Invalid length ' + textLength + ']', confidence: 0 };
     }
     
@@ -498,15 +540,32 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
   };
 
   const wrapEncode = () => {
-    if (!inputText || !canvasRef.current) return;
+    console.log('Generate button clicked');
+    console.log('inputText:', inputText?.substring(0, 50));
+    console.log('canvasRef.current:', canvasRef.current);
+    
+    if (!inputText || !canvasRef.current) {
+      console.warn('Missing inputText or canvas');
+      return;
+    }
+    
     setIsGenerating(true);
+    console.log('Starting generation...');
+    
     setTimeout(() => {
-      encode();
-      const url = canvasRef.current.toDataURL('image/png');
-      setPreviewUrl(url);
-      setIsGenerated(true);
-      setIsGenerating(false);
-      onPreviewReady?.(url, `${CONFIG.rings}×${CONFIG.segments} rings`);
+      try {
+        encode();
+        const url = canvasRef.current.toDataURL('image/png');
+        setPreviewUrl(url);
+        setIsGenerated(true);
+        onPreviewReady?.(url, `${CONFIG.rings}×${CONFIG.segments} rings`);
+        console.log('Generation complete!');
+      } catch (err) {
+        console.error('Encode failed:', err);
+        alert('Generation failed: ' + err.message);
+      } finally {
+        setIsGenerating(false);
+      }
     }, 50);
   };
 
@@ -533,7 +592,7 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
   };
 
   return (
-    <div>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Tabs */}
       <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
         {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
@@ -541,7 +600,7 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
             padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
             borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
             color: activeTab===key ? t.tabActive : t.tabInactive,
-            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            fontSize:'13px', fontWeight:'500', letterSpacing:'0.04em',
             cursor:'pointer', marginBottom:'-1px',
           }}>{label}</button>
         ))}
@@ -551,8 +610,8 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
       {activeTab === 'encode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
           </div>
           <textarea value={inputText} onChange={e => setInputText(e.target.value)}
             placeholder="Type your message..." maxLength={10000}
@@ -568,7 +627,7 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
             width:'100%', padding:'18px 24px',
             background:(!inputText||isGenerating)?'#e0e0e0':t.btnBg,
             color:(!inputText||isGenerating)?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:(!inputText||isGenerating)?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -584,10 +643,6 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
             <div style={{ marginTop:'20px', display:'flex', alignItems:'center', gap:'12px' }}>
               <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }}/>
               <span style={{ fontSize:'12px', color:'#666' }}>Code generated — preview on the right</span>
-              <button onClick={download} style={{ marginLeft:'auto', padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
-              </button>
             </div>
           )}
         </>
@@ -597,25 +652,32 @@ const ShotCodeV2 = ({ initialText = '', onPreviewReady }) => {
       {activeTab === 'decode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
           </div>
-          <div onClick={() => fileInputRef.current?.click()} style={{
-            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+          <div onClick={() => fileInputRef.current?.click()}
+            onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={()=>setIsDragOver(false)}
+            onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) wrapFileUpload({target:{files:[file],value:''}});}}
+            style={{
+            border:`2px dashed ${isDragOver?'#000000':t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
             display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
-            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+            background:isDragOver?'#f0f0f0':t.inputBg, marginBottom:'24px', textAlign:'center',
+            transition:'border-color 0.15s, background 0.15s',
           }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragOver?'#000000':t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>
+              {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+            </p>
             <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />
           <button onClick={() => fileInputRef.current?.click()} disabled={isDecoding} style={{
             width:'100%', padding:'18px 24px',
             background:isDecoding?'#e0e0e0':t.btnBg, color:isDecoding?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:isDecoding?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',

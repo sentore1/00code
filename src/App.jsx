@@ -54,7 +54,7 @@ export const NavBar = ({ mode, onModeChange, darkMode, onDarkModeToggle }) => {
                   display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px',
                   border: 'none', outline: 'none', cursor: 'pointer',
                   background: m.value === mode ? '#f4f4f4' : '#fff',
-                  color: '#111', fontSize: '13px', fontWeight: m.value === mode ? '600' : '400',
+                  color: '#111', fontSize: '13px', fontWeight: m.value === mode ? '500' : '400',
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#f4f4f4'; }}
@@ -93,6 +93,7 @@ function App() {
   const [mode, setMode]         = useState('morphing');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLabel, setPreviewLabel] = useState('');
+  const [rightActions, setRightActions] = useState(null); // {download, simulateScan?, scanCount?, isGenerated}
 
   const toggleDark = () => setDarkMode(d => !d);
 
@@ -106,6 +107,7 @@ function App() {
     setMode(newMode);
     setPreviewUrl('');
     setPreviewLabel('');
+    setRightActions(null);
   };
 
   const t = {
@@ -132,60 +134,61 @@ function App() {
     advanced: { title: 'Advanced Morphing Code',     subtitle: 'Dynamic ring sections • Living data system • 30K capacity' },
     imigongo: { title: 'Imigongo Shape Code',         subtitle: 'Data encoded in geometric African patterns • 5K capacity' },
     adaptive: { title: 'Adaptive ShotCode',           subtitle: 'Code automatically grows with your data' },
-    encode:   { title: 'Circular ShotCode',           subtitle: '240 rings × 360 segments • Ultra high capacity' },
+    encode:   { title: 'Circular ShotCode',           subtitle: '300 rings × 360 segments • Ultra high capacity (~10K)' },
     scan:     { title: 'ShotCode Scanner',            subtitle: 'Point your camera at a ShotCode to scan it' },
   };
   const info = pageInfo[mode] || { title: 'ocode', subtitle: '' };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: t.bg,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ flex: '0 0 55%', maxWidth: '55%', background: t.bg,
+      <div style={{ flex: '0 0 45%', maxWidth: '45%', background: t.bg,
         display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
 
         {/* Logo */}
-        <div style={{ padding: '32px 56px 0' }}>
-          <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.03em', color: t.text }}>
+        <div style={{ padding: '16px 56px 0' }}>
+          <span style={{ fontSize: '20px', fontWeight: '500', letterSpacing: '-0.03em', color: t.text }}>
             ocode
           </span>
         </div>
 
         {/* Page title */}
-        <div style={{ padding: '40px 56px 0' }}>
-          <h1 style={{ fontSize: '40px', fontWeight: '800', lineHeight: '1.1',
-            letterSpacing: '-0.025em', color: t.text, margin: '0 0 12px' }}>
+        <div style={{ padding: '24px 56px 0' }}>
+          <h1 style={{ fontSize: '56px', fontWeight: '700', lineHeight: '1.0',
+            letterSpacing: '-0.03em', color: t.text, margin: '0 0 16px',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
             {info.title}
           </h1>
-          <p style={{ fontSize: '14px', color: t.textMuted, margin: '0 0 40px' }}>
+          <p style={{ fontSize: '15px', color: t.textMuted, margin: '0 0 56px', lineHeight: '1.5' }}>
             {info.subtitle}
           </p>
         </div>
 
         {/* Component content */}
         <div style={{ flex: 1, padding: '0 56px 80px' }}>
-          {mode === 'advanced' ? <AdvancedMorphingCode onPreviewReady={handlePreview} /> :
-           mode === 'imigongo' ? <ImigogoShapeCode onPreviewReady={handlePreview} /> :
-           mode === 'adaptive' ? <AdaptiveShotCode onPreviewReady={handlePreview} /> :
-           mode === 'encode'   ? <ShotCodeV2 onPreviewReady={handlePreview} /> :
+          {mode === 'advanced' ? <AdvancedMorphingCode onPreviewReady={handlePreview} onActionsReady={setRightActions} /> :
+           mode === 'imigongo' ? <ImigogoShapeCode onPreviewReady={handlePreview} onActionsReady={setRightActions} /> :
+           mode === 'adaptive' ? <AdaptiveShotCode onPreviewReady={handlePreview} onActionsReady={setRightActions} /> :
+           mode === 'encode'   ? <ShotCodeV2 onPreviewReady={handlePreview} onActionsReady={setRightActions} /> :
                                  <ShotCodeScanner />}
         </div>
       </div>
 
       {/* ── RIGHT PANEL ── */}
       <div style={{ flex: 1, background: t.rightBg, borderLeft: `1px solid ${t.border}`,
-        display: 'flex', flexDirection: 'column', padding: '32px 48px 80px' }}>
+        display: 'flex', flexDirection: 'column', padding: '16px 48px 80px' }}>
 
         {/* Nav top-right */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
           <NavBar mode={mode} onModeChange={handleModeChange} darkMode={darkMode} onDarkModeToggle={toggleDark} />
         </div>
 
         {/* Section label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
-          <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: t.textDim }}>02</span>
-          <span style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: t.textMuted }}>LIVE PREVIEW</span>
+          <span style={{ fontSize: '11px', fontWeight: '400', letterSpacing: '0.1em', color: t.textDim }}>02</span>
+          <span style={{ fontSize: '11px', fontWeight: '400', letterSpacing: '0.1em', color: t.textMuted }}>LIVE PREVIEW</span>
         </div>
 
         {/* Preview or placeholder */}
@@ -224,6 +227,35 @@ function App() {
           <span style={{ fontSize: '12px', color: t.textMuted }}>
             {previewUrl ? 'Ready' : 'Waiting for input'}
           </span>
+          {rightActions?.isGenerated && (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+              <button onClick={rightActions.download} style={{
+                padding: '7px 14px', background: darkMode ? '#2a2a2a' : '#f0f0f0',
+                color: darkMode ? '#fff' : '#111', border: 'none', borderRadius: '6px',
+                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+              }}>
+                Download
+              </button>
+              {rightActions.simulateScan && (
+                <button onClick={rightActions.simulateScan} style={{
+                  padding: '7px 14px', background: darkMode ? '#2a2a2a' : '#f0f0f0',
+                  color: darkMode ? '#fff' : '#111', border: 'none', borderRadius: '6px',
+                  fontSize: '12px', fontWeight: '600', cursor: 'pointer',
+                }}>
+                  Simulate Scan
+                </button>
+              )}
+              {rightActions.simulateScan && (
+                <span style={{
+                  padding: '7px 14px', background: darkMode ? '#1a1a1a' : '#e8e8e8',
+                  color: darkMode ? '#888' : '#666', borderRadius: '6px',
+                  fontSize: '12px', fontWeight: '600',
+                }}>
+                  Scan #{rightActions.scanCount ?? 0}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

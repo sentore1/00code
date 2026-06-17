@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 
-const AdaptiveShotCode = ({ onPreviewReady }) => {
+const AdaptiveShotCode = ({ onPreviewReady, onActionsReady }) => {
   const [inputText, setInputText] = useState('');
   const [codeConfig, setCodeConfig] = useState(null);
+  const [densityOpen, setDensityOpen] = useState(false);
   const [decodedText, setDecodedText] = useState('');
   const [activeTab, setActiveTab] = useState('encode');
   const [codeGenerated, setCodeGenerated] = useState(false);
@@ -12,8 +13,24 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
   const [decodeError, setDecodeError]   = useState('');
   const [decodeInfo, setDecodeInfo]     = useState(null);
   const [isDecoding, setIsDecoding]     = useState(false);
+  const [isDragOver, setIsDragOver]     = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Expose download action to parent (App.jsx) for bottom-right status bar
+  useEffect(() => {
+    if (!onActionsReady) return;
+    onActionsReady({
+      download: () => {
+        if (!canvasRef.current) return;
+        const link = document.createElement('a');
+        link.download = `adaptive-shotcode-${codeConfig?.name || 'code'}.png`;
+        link.href = canvasRef.current.toDataURL('image/png');
+        link.click();
+      },
+      isGenerated,
+    });
+  }, [isGenerated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ADAPTIVE CONFIGURATIONS - Code grows with data
   const DENSITY_LEVELS = [
@@ -569,7 +586,7 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
   };
 
   return (
-    <div>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Tabs */}
       <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
         {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
@@ -577,7 +594,7 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
             padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
             borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
             color: activeTab===key ? t.tabActive : t.tabInactive,
-            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            fontSize:'13px', fontWeight:'500', letterSpacing:'0.04em',
             cursor:'pointer', marginBottom:'-1px',
           }}>{label}</button>
         ))}
@@ -587,26 +604,58 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
       {activeTab === 'encode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>SELECT DENSITY</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>SELECT DENSITY</span>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'8px', marginBottom:'28px' }}>
-            {DENSITY_LEVELS.map((level, idx) => (
-              <button key={level.name} onClick={() => setCodeConfig({ ...level, index: idx })} style={{
-                padding:'10px 8px', border:`2px solid ${codeConfig?.index===idx ? '#000' : t.border}`,
-                borderRadius:'8px', background: codeConfig?.index===idx ? '#000' : t.inputBg,
-                color: codeConfig?.index===idx ? '#fff' : t.text,
-                cursor:'pointer', textAlign:'center',
-              }}>
-                <div style={{ fontSize:'12px', fontWeight:'700' }}>{level.name}</div>
-                <div style={{ fontSize:'10px', opacity:0.7, marginTop:'2px' }}>{level.capacity}B</div>
-              </button>
-            ))}
+          <div style={{ position:'relative', marginBottom:'28px' }}>
+            <button onClick={() => setDensityOpen(o => !o)} style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between',
+              width:'100%', padding:'10px 14px', border:`1px solid ${t.border}`,
+              borderRadius:'8px', background:t.inputBg, color:t.text,
+              fontSize:'13px', fontWeight:'500', cursor:'pointer', outline:'none',
+              fontFamily:'inherit',
+            }}>
+              <span>{codeConfig ? `${codeConfig.name} — ${codeConfig.capacity.toLocaleString()}B` : 'Auto (select density)'}</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {densityOpen && (
+              <>
+                <div onClick={() => setDensityOpen(false)} style={{ position:'fixed', inset:0, zIndex:98 }}/>
+                <div style={{
+                  position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:99,
+                  background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:'8px',
+                  overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,0.12)',
+                }}>
+                  <button onClick={() => { setCodeConfig(null); setDensityOpen(false); }} style={{
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                    width:'100%', padding:'10px 14px', border:'none', outline:'none',
+                    background: codeConfig === null ? (t.border) : t.inputBg,
+                    color:t.text, fontSize:'13px', cursor:'pointer', fontFamily:'inherit',
+                  }}>
+                    <span style={{ fontWeight:'500' }}>Auto</span>
+                    <span style={{ fontSize:'11px', opacity:0.6 }}>adapts to text</span>
+                  </button>
+                  {DENSITY_LEVELS.map((level, idx) => (
+                    <button key={level.name} onClick={() => { setCodeConfig({ ...level, index: idx }); setDensityOpen(false); }} style={{
+                      display:'flex', alignItems:'center', justifyContent:'space-between',
+                      width:'100%', padding:'10px 14px', border:'none', outline:'none',
+                      background: codeConfig?.index === idx ? t.border : t.inputBg,
+                      color:t.text, fontSize:'13px', cursor:'pointer', fontFamily:'inherit',
+                    }}>
+                      <span style={{ fontWeight:'500' }}>{level.name}</span>
+                      <span style={{ fontSize:'11px', opacity:0.6 }}>{level.capacity.toLocaleString()}B</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>02</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>02</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
           </div>
           <textarea value={inputText} onChange={e => setInputText(e.target.value)}
             placeholder="Start typing... code adapts automatically" maxLength={20000}
@@ -622,7 +671,7 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
             width:'100%', padding:'18px 24px',
             background:(!inputText||isGenerating)?'#e0e0e0':t.btnBg,
             color:(!inputText||isGenerating)?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:(!inputText||isGenerating)?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -638,10 +687,6 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
             <div style={{ marginTop:'20px', display:'flex', alignItems:'center', gap:'12px' }}>
               <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }}/>
               <span style={{ fontSize:'12px', color:'#666' }}>Code generated — preview on the right</span>
-              <button onClick={download} style={{ marginLeft:'auto', padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download
-              </button>
             </div>
           )}
         </>
@@ -651,25 +696,32 @@ const AdaptiveShotCode = ({ onPreviewReady }) => {
       {activeTab === 'decode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
           </div>
-          <div onClick={() => fileInputRef.current?.click()} style={{
-            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+          <div onClick={() => fileInputRef.current?.click()}
+            onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={()=>setIsDragOver(false)}
+            onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) wrapFileUpload({target:{files:[file],value:''}});}}
+            style={{
+            border:`2px dashed ${isDragOver?'#000000':t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
             display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
-            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+            background:isDragOver?'#f0f0f0':t.inputBg, marginBottom:'24px', textAlign:'center',
+            transition:'border-color 0.15s, background 0.15s',
           }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragOver?'#000000':t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>
+              {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+            </p>
             <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />
           <button onClick={() => fileInputRef.current?.click()} disabled={isDecoding} style={{
             width:'100%', padding:'18px 24px',
             background:isDecoding?'#e0e0e0':t.btnBg, color:isDecoding?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:isDecoding?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',

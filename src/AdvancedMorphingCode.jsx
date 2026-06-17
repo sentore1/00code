@@ -22,7 +22,7 @@ import { useState, useRef, useEffect } from 'react';
  * 4. Drawn as 150 concentric rings with shapes
  * 5. Output as 3000×3000 PNG image
  */
-const AdvancedMorphingCode = ({ onPreviewReady }) => {
+const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
   // State management
   const [inputText, setInputText] = useState('');
   const [decodedText, setDecodedText] = useState('');
@@ -37,8 +37,36 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
   const [decodeError, setDecodeError]   = useState('');
   const [decodeInfo, setDecodeInfo]     = useState(null);
   const [isDecoding, setIsDecoding]     = useState(false);
+  const [isDragOver, setIsDragOver]     = useState(false);
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // Expose actions to parent (App.jsx) for bottom-right status bar
+  useEffect(() => {
+    if (!onActionsReady) return;
+    onActionsReady({
+      download: () => {
+        if (!canvasRef.current) return;
+        const link = document.createElement('a');
+        link.download = 'advanced-morphing-code.png';
+        link.href = canvasRef.current.toDataURL('image/png');
+        link.click();
+      },
+      simulateScan: () => {
+        setScanCount(prev => {
+          const ns = prev + 1;
+          setMorphShape(s => {
+            const SHAPES = ['diamond', 'triangle', 'hexagon', 'chevron'];
+            return SHAPES[(SHAPES.indexOf(s) + 1) % SHAPES.length];
+          });
+          setRotationAngle((ns * 45) % 360);
+          return ns;
+        });
+      },
+      scanCount,
+      isGenerated: isGenerated2,
+    });
+  }, [isGenerated2, scanCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Available shape types for morphing
   const SHAPE_TYPES = ['diamond', 'triangle', 'hexagon', 'chevron'];
@@ -160,17 +188,38 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
    * 2. Look for \x01 marker
    * 3. Next byte is the space count
    * 4. Replace with that many spaces
+   * 
+   * Error handling:
+   * - Validates marker is followed by a valid count
+   * - Handles edge cases (marker at end, invalid count)
    */
   const decompress = (compressed) => {
     let result = '';
     let i = 0;
     while (i < compressed.length) {
-      if (compressed.charCodeAt(i) === 1) {
-        // Found marker, next byte is count
-        const count = compressed.charCodeAt(i + 1);
-        result += ' '.repeat(count);
-        i += 2;
+      const charCode = compressed.charCodeAt(i);
+      
+      if (charCode === 1) {
+        // Found compression marker
+        if (i + 1 < compressed.length) {
+          const count = compressed.charCodeAt(i + 1);
+          // Validate count is reasonable (3-255)
+          if (count >= 3 && count <= 255) {
+            result += ' '.repeat(count);
+            i += 2;
+          } else {
+            // Invalid count, treat marker as regular character
+            console.warn('Invalid compression count:', count, 'at position', i);
+            result += compressed[i];
+            i++;
+          }
+        } else {
+          // Marker at end with no count, skip it
+          console.warn('Compression marker at end of string');
+          i++;
+        }
       } else {
+        // Regular character
         result += compressed[i];
         i++;
       }
@@ -556,8 +605,18 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
       whiteSamples.push(getPixel(x, y));
     }
     
-    const avgBlack = blackSamples.reduce((a, b) => a + b, 0) / blackSamples.length;
-    const avgWhite = whiteSamples.reduce((a, b) => a + b, 0) / whiteSamples.length;
+    let avgBlack = blackSamples.reduce((a, b) => a + b, 0) / blackSamples.length;
+    let avgWhite = whiteSamples.reduce((a, b) => a + b, 0) / whiteSamples.length;
+    
+    // Check if black and white are inverted
+    if (avgBlack > avgWhite) {
+      console.warn('⚠️ BLACK AND WHITE APPEAR INVERTED!');
+      console.warn('Black avg:', avgBlack, 'White avg:', avgWhite);
+      console.warn('Swapping samples to correct...');
+      const temp = avgBlack;
+      avgBlack = avgWhite;
+      avgWhite = temp;
+    }
     
     // Improved threshold: use weighted average for better separation
     const threshold = (avgBlack + avgWhite) / 2;
@@ -568,36 +627,71 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
     console.log('Contrast:', contrast.toFixed(1));
     console.log('Threshold:', threshold.toFixed(1));
     
-    let binary = '';
+    // Verify threshold is reasonable
+    if (contrast < 50) {
+      console.error('⚠️ LOW CONTRAST WARNING:', contrast);
+      console.error('Image may be too dark, too light, or low quality');
+    }
+    
+    // CRITICAL: Use unscaled values for shape calculation to match encoder exactly
     const { rings, innerRadius, outerRadius } = CONFIG;
-    const scaledInner = innerRadius * scale;
-    const scaledOuter = outerRadius * scale;
-    const ringWidth = (scaledOuter - scaledInner) / rings;
+    const ringWidth = (outerRadius - innerRadius) / rings;
     
-    console.log('Decoding with:');
-    console.log('- Rings:', rings);
-    console.log('- Inner radius:', scaledInner.toFixed(1));
-    console.log('- Outer radius:', scaledOuter.toFixed(1));
-    console.log('- Ring width:', ringWidth.toFixed(2));
-    
-    // Get adaptive sampling parameters based on shape
-    const samplingParams = getAdaptiveSamplingParams(morphShape);
-    console.log('Adaptive sampling for', morphShape + ':', samplingParams);
-    
-    let lowConfidenceBits = 0;
-    
+    // First, calculate total expected capacity using UNSCALED values (same as encoder)
+    let totalExpectedBits = 0;
     for (let ring = rings - 1; ring >= 0; ring--) {
-      const r = scaledInner + ring * ringWidth + ringWidth / 2;
+      const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
+      totalExpectedBits += numShapes;
+    }
+    
+    console.log('Expected total bits (from encoder logic):', totalExpectedBits);
+    
+    // Now scale for actual decoding
+    const scaledInner = innerRadius * scale;
+    const scaledOuter = outerRadius * scale;
+    const scaledRingWidth = (scaledOuter - scaledInner) / rings;
+    
+    console.log('Decoding with:');
+    console.log('- Rings:', rings);
+    console.log('- Inner radius (scaled):', scaledInner.toFixed(1));
+    console.log('- Outer radius (scaled):', scaledOuter.toFixed(1));
+    console.log('- Ring width (scaled):', scaledRingWidth.toFixed(2));
+    
+    // Use ultra-aggressive sampling for maximum accuracy
+    const samplingParams = {
+      gridSize: 31,           // 31×31 = 961 sample points (ultra dense)
+      radiusMultiplier: 0.75, // Sample 75% of shape area (increased coverage)
+      passes: 3               // Three passes for better redundancy
+    };
+    
+    console.log('Using ultra-high-density sampling:', samplingParams);
+    
+    let binary = '';
+    let lowConfidenceBits = 0;
+    let bitConfidences = [];
+    let actualShapeCount = 0;
+    
+    // CRITICAL: Use UNSCALED values for shape count calculation (matching encoder)
+    for (let ring = rings - 1; ring >= 0; ring--) {
+      // Use unscaled radius for shape calculation
+      const r_unscaled = innerRadius + ring * ringWidth + ringWidth / 2;
+      const circumference = 2 * Math.PI * r_unscaled;
+      const shapeSize_unscaled = ringWidth * 0.8;
+      const numShapes = Math.floor(circumference / (shapeSize_unscaled * 1.1));
+      
+      // Use scaled values for actual pixel sampling
+      const r_scaled = scaledInner + ring * scaledRingWidth + scaledRingWidth / 2;
+      const shapeSize_scaled = scaledRingWidth * 0.8;
       
       for (let i = 0; i < numShapes; i++) {
         const angle = (i / numShapes) * Math.PI * 2;
-        const x = center + r * Math.cos(angle);
-        const y = center + r * Math.sin(angle);
+        const x = center + r_scaled * Math.cos(angle);
+        const y = center + r_scaled * Math.sin(angle);
         
-        // Multi-pass sampling for better accuracy
+        // Multi-pass sampling with variance detection
         let totalBlackCount = 0;
         let totalWhiteCount = 0;
         
@@ -605,14 +699,16 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
           let blackCount = 0;
           let whiteCount = 0;
           
-          const sampleRadius = shapeSize * samplingParams.radiusMultiplier;
+          const sampleRadius = shapeSize_scaled * samplingParams.radiusMultiplier;
           const gridSize = samplingParams.gridSize;
-          const offset = pass * (sampleRadius / samplingParams.passes);
+          // Use different offset patterns for each pass
+          const offsetX = pass * (sampleRadius / (samplingParams.passes * 2));
+          const offsetY = (pass * (sampleRadius / (samplingParams.passes * 2))) * -1;
           
           for (let gx = 0; gx < gridSize; gx++) {
             for (let gy = 0; gy < gridSize; gy++) {
-              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize) + offset;
-              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize) + offset;
+              const dx = (gx - gridSize/2) * (sampleRadius * 2 / gridSize) + offsetX;
+              const dy = (gy - gridSize/2) * (sampleRadius * 2 / gridSize) + offsetY;
               const brightness = getPixel(x + dx, y + dy);
               
               if (brightness < threshold) blackCount++;
@@ -626,31 +722,67 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
         
         const total = totalBlackCount + totalWhiteCount;
         const confidence = Math.max(totalBlackCount, totalWhiteCount) / total;
+        bitConfidences.push(confidence);
         
         if (confidence < 0.65) {
           lowConfidenceBits++;
         }
         
-        binary += totalBlackCount > totalWhiteCount ? '1' : '0';
+        const bit = totalBlackCount > totalWhiteCount ? '1' : '0';
+        binary += bit;
+        actualShapeCount++;
       }
     }
     
+    // Calculate average confidence
+    const avgConfidence = bitConfidences.length > 0 
+      ? bitConfidences.reduce((a, b) => a + b, 0) / bitConfidences.length 
+      : 0;
+    
     console.log('Total bits decoded:', binary.length);
+    console.log('Expected bits:', totalExpectedBits);
+    console.log('Actual shapes decoded:', actualShapeCount);
     console.log('Low confidence bits:', lowConfidenceBits, '(' + (lowConfidenceBits / binary.length * 100).toFixed(1) + '%)');
+    console.log('Average confidence:', (avgConfidence * 100).toFixed(1) + '%');
     console.log('First 100 bits:', binary.substring(0, 100));
     
-    // Decode length header (first 48 bits)
-    const byteLength = decodeLengthWithRedundancy(binary);
-    console.log('Decoded byte length:', byteLength);
+    if (binary.length < 59) {
+      console.error('Not enough bits for header');
+      return { text: '[ERROR: Image too small - not enough bits]', scanCount: 0, shape: 'unknown' };
+    }
     
-    if (byteLength > 5000 || byteLength === 0) {
+    // Decode length header (first 48 bits)
+    console.log('First 48 bits (length header):', binary.substring(0, 48));
+    const len1 = parseInt(binary.substring(0, 16), 2);
+    const len2 = parseInt(binary.substring(16, 32), 2);
+    const len3 = parseInt(binary.substring(32, 48), 2);
+    console.log('Length candidates (raw):', len1, len2, len3);
+    
+    let byteLength = decodeLengthWithRedundancy(binary);
+    console.log('Decoded byte length (after voting):', byteLength);
+    
+    // Calculate maximum possible data size based on available bits
+    const maxPossibleBytes = Math.floor((binary.length - 59) / 8);
+    console.log('Maximum possible bytes (from available bits):', maxPossibleBytes);
+    
+    if (byteLength > maxPossibleBytes) {
+      console.error('Length header claims', byteLength, 'bytes but only', maxPossibleBytes, 'bytes possible!');
+      console.error('This means the length header was decoded incorrectly.');
+      console.error('Attempting to use maximum available instead...');
+      
+      // Use the maximum available as a fallback
+      byteLength = Math.min(byteLength, maxPossibleBytes);
+      console.warn('Using fallback length:', byteLength, 'bytes');
+      
+      if (byteLength < 10) {
+        return { text: '[ERROR: Length header corrupted - only ' + byteLength + ' bytes recoverable]', scanCount: 0, shape: 'unknown' };
+      }
+    } else if (byteLength > 30000 || byteLength === 0) {
       console.error('Invalid byte length:', byteLength);
       return { text: '[ERROR: Invalid length ' + byteLength + ']', scanCount: 0, shape: 'unknown' };
     }
     
     // Extract metadata (bits 48-59)
-    // Bits 48-50: shape (3 bits)
-    // Bits 51-58: scan count (8 bits)
     const patternBits = binary.substring(48, 51);
     const decodedShapeIndex = parseInt(patternBits, 2);
     const decodedShape = SHAPE_TYPES[decodedShapeIndex] || 'unknown';
@@ -661,15 +793,65 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
     console.log('Shape bits:', patternBits, '-> index:', decodedShapeIndex, '-> shape:', decodedShape);
     console.log('Scan count bits:', scanCountBits, '-> count:', decodedScanCount);
     
+    // Calculate required bits for data
+    const requiredBits = 59 + byteLength * 8;
+    console.log('Required bits (header + data):', requiredBits);
+    console.log('Available bits:', binary.length);
+    
+    // Check if we have enough bits
+    if (binary.length < requiredBits) {
+      console.error('Not enough bits! Need:', requiredBits, 'Have:', binary.length, 'Missing:', requiredBits - binary.length);
+      return { 
+        text: `[ERROR: Insufficient data bits - need ${requiredBits}, have ${binary.length}]`, 
+        scanCount: decodedScanCount, 
+        shape: decodedShape 
+      };
+    }
+    
     // Extract data (after 59 bits of metadata)
     const dataBits = binary.substring(59, 59 + byteLength * 8);
-    console.log('Data bits length:', dataBits.length, '(expected', byteLength * 8, ')');
+    console.log('Data bits extracted:', dataBits.length, '(expected', byteLength * 8, ')');
     
-    const decodedCompressed = binaryToText(dataBits);
-    const decoded = CONFIG.useCompression ? decompress(decodedCompressed) : decodedCompressed;
+    // Convert binary to bytes
+    let bytes = [];
+    for (let i = 0; i < dataBits.length; i += 8) {
+      const byte = dataBits.substring(i, i + 8);
+      if (byte.length === 8) {
+        bytes.push(parseInt(byte, 2));
+      }
+    }
     
-    console.log('Decoded text length:', decoded.length);
-    console.log('Decoded text preview:', decoded.substring(0, 100));
+    console.log('Decoded bytes:', bytes.length, 'expected:', byteLength);
+    console.log('First 20 bytes:', bytes.slice(0, 20));
+    
+    // Decode UTF-8 bytes to text
+    let decodedCompressed = '';
+    try {
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      decodedCompressed = decoder.decode(new Uint8Array(bytes));
+      console.log('UTF-8 decode successful');
+    } catch (e) {
+      console.error('UTF-8 decode error:', e);
+      return { text: '[ERROR: UTF-8 decoding failed]', scanCount: decodedScanCount, shape: decodedShape };
+    }
+    
+    console.log('Compressed text length:', decodedCompressed.length);
+    console.log('Compressed text preview:', decodedCompressed.substring(0, 50).split('').map(c => c.charCodeAt(0) < 32 ? `\\x${c.charCodeAt(0).toString(16).padStart(2,'0')}` : c).join(''));
+    
+    // Decompress if compression was enabled
+    let decoded = decodedCompressed;
+    if (CONFIG.useCompression) {
+      try {
+        decoded = decompress(decodedCompressed);
+        console.log('Decompression successful');
+      } catch (e) {
+        console.error('Decompression error:', e);
+        return { text: '[ERROR: Decompression failed]', scanCount: decodedScanCount, shape: decodedShape };
+      }
+    }
+    
+    console.log('Final decoded text length:', decoded.length);
+    console.log('Final text preview:', decoded.substring(0, 100));
     
     return { text: decoded, scanCount: decodedScanCount, shape: decodedShape };
   };
@@ -800,7 +982,7 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
   };
 
   return (
-    <div>
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Tabs */}
       <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
         {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
@@ -808,7 +990,7 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
             padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
             borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
             color: activeTab===key ? t.tabActive : t.tabInactive,
-            fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+            fontSize:'13px', fontWeight:'500', letterSpacing:'0.04em',
             cursor:'pointer', marginBottom:'-1px',
           }}>{label}</button>
         ))}
@@ -818,8 +1000,8 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
       {activeTab === 'encode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>ENCODE MESSAGE</span>
           </div>
           <textarea value={inputText} onChange={e => { setInputText(e.target.value); setIsGenerated(false); }}
             placeholder="Type your message..." maxLength={30000}
@@ -835,7 +1017,7 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
             width:'100%', padding:'18px 24px',
             background:(!inputText||isGenerating)?'#e0e0e0':t.btnBg,
             color:(!inputText||isGenerating)?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:(!inputText||isGenerating)?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -851,15 +1033,6 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
             <div style={{ marginTop:'20px', display:'flex', alignItems:'center', gap:'12px' }}>
               <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e', flexShrink:0 }}/>
               <span style={{ fontSize:'12px', color:'#666' }}>Code generated — preview on the right</span>
-              <div style={{ marginLeft:'auto', display:'flex', gap:'8px' }}>
-                <button onClick={download} style={{ padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Download
-                </button>
-                <button onClick={simulateScan} style={{ padding:'7px 14px', background:'transparent', color:'#000', border:'1px solid #e5e5e5', borderRadius:'6px', fontSize:'12px', fontWeight:'500', cursor:'pointer' }}>
-                  Simulate Scan
-                </button>
-              </div>
             </div>
           )}
         </>
@@ -869,25 +1042,32 @@ const AdvancedMorphingCode = ({ onPreviewReady }) => {
       {activeTab === 'decode' && (
         <>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
           </div>
-          <div onClick={() => fileInputRef.current?.click()} style={{
-            border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
+          <div onClick={() => fileInputRef.current?.click()}
+            onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+            onDragLeave={()=>setIsDragOver(false)}
+            onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) wrapFileUpload({target:{files:[file],value:''}});}}
+            style={{
+            border:`2px dashed ${isDragOver?'#000000':t.uploadBorder}`, borderRadius:'8px', padding:'40px 24px',
             display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer',
-            background:t.inputBg, marginBottom:'24px', textAlign:'center',
+            background:isDragOver?'#f0f0f0':t.inputBg, marginBottom:'24px', textAlign:'center',
+            transition:'border-color 0.15s, background 0.15s',
           }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isDragOver?'#000000':t.textDim} strokeWidth="1.5" style={{ marginBottom:'10px' }}>
               <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
             </svg>
-            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+            <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>
+              {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+            </p>
             <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" onChange={wrapFileUpload} style={{ display:'none' }} />
           <button onClick={() => fileInputRef.current?.click()} disabled={isDecoding} style={{
             width:'100%', padding:'18px 24px',
             background:isDecoding?'#e0e0e0':t.btnBg, color:isDecoding?t.textDim:t.btnText,
-            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'700',
+            border:'none', borderRadius:'0', fontSize:'13px', fontWeight:'600',
             letterSpacing:'0.08em', textTransform:'uppercase',
             cursor:isDecoding?'not-allowed':'pointer',
             display:'flex', alignItems:'center', justifyContent:'space-between',

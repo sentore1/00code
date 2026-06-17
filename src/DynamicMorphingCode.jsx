@@ -40,7 +40,8 @@ const MorphingDropdown = ({ mode, onModeChange, modes, darkMode, onDarkModeToggl
                     padding: '10px 16px', border: 'none', outline: 'none',
                     background: m.value === mode ? '#f4f4f4' : '#ffffff',
                     color: '#111', fontSize: '13px',
-                    fontWeight: m.value === mode ? '600' : '400', cursor: 'pointer',
+                    fontWeight: m.value === mode ? '500' : '400', cursor: 'pointer',
+                    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#f4f4f4'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = m.value === mode ? '#f4f4f4' : '#ffffff'; }}
@@ -82,12 +83,14 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
   const [decodeError, setDecodeError] = useState('');
   const [decodeInfo, setDecodeInfo] = useState(null);
   const [isDecoding, setIsDecoding] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [scanCount, setScanCount] = useState(0);
   const [morphShape, setMorphShape] = useState('diamond');
   const [rotationAngle, setRotationAngle] = useState(0);
   const [activeTab, setActiveTab] = useState('encode');
   const [isGenerated, setIsGenerated] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -162,9 +165,14 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
     ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
   };
 
-  const encode = () => {
+  const encode = (overrides = {}) => {
     if (!inputText || !canvasRef.current) return;
-    setIsGenerating(true);
+    // Allow simulateScan to pass new values directly, bypassing async state
+    const useScanCount    = overrides.scanCount    !== undefined ? overrides.scanCount    : scanCount;
+    const useMorphShape   = overrides.morphShape   !== undefined ? overrides.morphShape   : morphShape;
+    const useRotation     = overrides.rotationAngle !== undefined ? overrides.rotationAngle : rotationAngle;
+    const isSimulate      = overrides._simulate === true;
+    if (isSimulate) setIsSimulating(true); else setIsGenerating(true);
     setTimeout(() => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -175,8 +183,8 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
       const textToEncode = CONFIG.useCompression ? compress(inputText) : inputText;
       const bytes = new TextEncoder().encode(textToEncode);
       const lb = bytes.length.toString(2).padStart(16,'0');
-      const scanCountBits = (scanCount%256).toString(2).padStart(8,'0');
-      const shapeBits = SHAPE_TYPES.indexOf(morphShape).toString(2).padStart(3,'0');
+      const scanCountBits = (useScanCount%256).toString(2).padStart(8,'0');
+      const shapeBits = SHAPE_TYPES.indexOf(useMorphShape).toString(2).padStart(3,'0');
       let fullBinary = lb+lb+lb + scanCountBits + shapeBits + textToBinary(textToEncode);
 
       const ringWidth = (outerRadius - innerRadius) / rings;
@@ -199,17 +207,18 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
         for (let i=0; i<numShapes && bitIndex<fullBinary.length; i++) {
           const angle = (i/numShapes)*Math.PI*2;
           drawShape(ctx, center+r*Math.cos(angle), center+r*Math.sin(angle),
-            angle+Math.PI/2+(rotationAngle*Math.PI/180), shapeSize, fullBinary[bitIndex], morphShape);
+            angle+Math.PI/2+(useRotation*Math.PI/180), shapeSize, fullBinary[bitIndex], useMorphShape);
           bitIndex++;
         }
       }
       ctx.strokeStyle='#000'; ctx.lineWidth=15;
       ctx.beginPath(); ctx.arc(center,center,960,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle='#333'; ctx.font='bold 24px Arial'; ctx.textAlign='center';
-      ctx.fillText(`Scan #${scanCount} | Shape: ${morphShape}`, center, canvasSize-30);
+      ctx.fillText(`Scan #${useScanCount} | Shape: ${useMorphShape}`, center, canvasSize-30);
 
       setPreviewUrl(canvas.toDataURL('image/png'));
-      setIsGenerated(true); setIsGenerating(false);
+      setIsGenerated(true);
+      if (isSimulate) setIsSimulating(false); else setIsGenerating(false);
     }, 50);
   };
 
@@ -270,9 +279,17 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
   };
 
   const simulateScan = () => {
-    const ns=scanCount+1; setScanCount(ns);
-    const ni=(SHAPE_TYPES.indexOf(morphShape)+1)%SHAPE_TYPES.length; setMorphShape(SHAPE_TYPES[ni]);
-    setRotationAngle((ns*45)%360);
+    if (!isGenerated) return; // nothing to simulate yet
+    const ns = scanCount + 1;
+    const ni = (SHAPE_TYPES.indexOf(morphShape) + 1) % SHAPE_TYPES.length;
+    const newShape = SHAPE_TYPES[ni];
+    const newRotation = (ns * 45) % 360;
+    // Update state for display
+    setScanCount(ns);
+    setMorphShape(newShape);
+    setRotationAngle(newRotation);
+    // Immediately regenerate with new values (state updates are async so pass directly)
+    encode({ scanCount: ns, morphShape: newShape, rotationAngle: newRotation, _simulate: true });
   };
 
 
@@ -342,21 +359,21 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
   };
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background: t.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background: t.bg, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ flex:'0 0 45%', maxWidth:'45%', padding:'40px 56px 80px', background: t.panelBg, display:'flex', flexDirection:'column' }}>
+      <div style={{ flex:'0 0 45%', maxWidth:'45%', padding:'16px 56px 80px', background: t.panelBg, display:'flex', flexDirection:'column' }}>
 
         {/* Logo — top of left panel */}
-        <div style={{ marginBottom: '56px' }}>
-          <span style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.03em', color: t.text,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+        <div style={{ marginBottom: '32px' }}>
+          <span style={{ fontSize: '20px', fontWeight: '500', letterSpacing: '-0.03em', color: t.text,
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
             ocode
           </span>
         </div>
 
         {/* Title */}
-        <h1 style={{ fontSize:'56px', fontWeight:'800', lineHeight:'1.05', letterSpacing:'-0.03em', color: t.text, margin:'0 0 16px' }}>
+        <h1 style={{ fontSize:'56px', fontWeight:'700', lineHeight:'1.0', letterSpacing:'-0.03em', color: t.text, margin:'0 0 16px', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
           Dynamic<br/>Morphing<br/>Code
         </h1>
         <p style={{ fontSize:'15px', color: t.textMuted, margin:'0 0 56px', lineHeight:'1.5' }}>
@@ -440,16 +457,23 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
             </div>
             <div
               onClick={()=>fileInputRef.current?.click()}
+              onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+              onDragLeave={()=>setIsDragOver(false)}
+              onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) handleFileUpload({target:{files:[file],value:''}});}}
               style={{
-                border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'48px 24px',
+                border:`2px dashed ${isDragOver ? (darkMode?'#ffffff':'#000000') : t.uploadBorder}`,
+                borderRadius:'8px', padding:'48px 24px',
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', background: t.inputBg, marginBottom:'24px', transition:'border-color 0.15s',
+                cursor:'pointer', background: isDragOver ? (darkMode?'#1f1f1f':'#f0f0f0') : t.inputBg,
+                marginBottom:'24px', transition:'border-color 0.15s, background 0.15s',
               }}
             >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'12px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={isDragOver?(darkMode?'#ffffff':'#000000'):t.textDim} strokeWidth="1.5" style={{ marginBottom:'12px' }}>
                 <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
               </svg>
-              <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color: t.text }}>Click to upload image</p>
+              <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color: t.text }}>
+                {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+              </p>
               <p style={{ margin:0, fontSize:'12px', color: t.textDim }}>PNG, JPG, WEBP</p>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:'none' }} />
@@ -508,10 +532,10 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
       </div>
 
       {/* ── RIGHT PANEL ── */}
-      <div style={{ flex:'1', background: t.rightBg, display:'flex', flexDirection:'column', padding:'40px 56px 80px', borderLeft:`1px solid ${t.border}` }}>
+      <div style={{ flex:'1', background: t.rightBg, display:'flex', flexDirection:'column', padding:'16px 56px 80px', borderLeft:`1px solid ${t.border}` }}>
 
         {/* Top row: nav controls right-aligned */}
-        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'40px' }}>
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'24px' }}>
           {/* Dropdown pill */}
           <MorphingDropdown
             mode={mode} onModeChange={onModeChange} modes={modes}
@@ -520,8 +544,8 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
         </div>
 
         <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'28px' }}>
-          <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.sectionNum }}>02</span>
-          <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color: t.previewLabel }}>LIVE MORPHING PREVIEW</span>
+          <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color: t.sectionNum }}>02</span>
+          <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color: t.previewLabel }}>LIVE MORPHING PREVIEW</span>
         </div>
 
         <div style={{ flex:'1', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -549,8 +573,8 @@ const DynamicMorphingCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, m
               <button onClick={download} style={{ padding:'7px 14px', background: t.chipBg, color: t.chipText, border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:'pointer' }}>
                 Download
               </button>
-              <button onClick={simulateScan} style={{ padding:'7px 14px', background: t.chipBg, color: t.chipText, border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor:'pointer' }}>
-                Simulate Scan
+              <button onClick={simulateScan} disabled={isSimulating} style={{ padding:'7px 14px', background: t.chipBg, color: t.chipText, border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:'600', cursor: isSimulating ? 'not-allowed' : 'pointer', opacity: isSimulating ? 0.6 : 1 }}>
+                {isSimulating ? 'Simulating...' : 'Simulate Scan'}
               </button>
               <span style={{ padding:'7px 14px', background: t.timerBg, color: t.timerText, borderRadius:'6px', fontSize:'12px', fontWeight:'600' }}>
                 Scan #{scanCount}

@@ -25,7 +25,7 @@ const NavBar = ({ mode, onModeChange, modes, darkMode, onDarkModeToggle }) => {
                   display:'block', width:'100%', textAlign:'left', padding:'10px 16px',
                   border:'none', outline:'none', cursor:'pointer',
                   background: m.value===mode ? '#f4f4f4' : '#fff',
-                  color:'#111', fontSize:'13px', fontWeight: m.value===mode ? '600' : '400',
+                  color:'#111', fontSize:'13px', fontWeight: m.value===mode ? '500' : '400',
                 }}
                   onMouseEnter={e=>{ e.currentTarget.style.background='#f4f4f4'; }}
                   onMouseLeave={e=>{ e.currentTarget.style.background = m.value===mode?'#f4f4f4':'#fff'; }}
@@ -64,6 +64,7 @@ const DualLayerCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }
   const [decodeError, setDecodeError] = useState('');
   const [decodeInfo, setDecodeInfo]   = useState(null);
   const [isDecoding, setIsDecoding]   = useState(false);
+  const [isDragOver, setIsDragOver]   = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated]   = useState(false);
   const [previewUrl, setPreviewUrl]     = useState('');
@@ -266,18 +267,18 @@ const DualLayerCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }
   };
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:t.bg, fontFamily:'-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:t.bg, fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── LEFT PANEL ── */}
-      <div style={{ flex:'0 0 45%', maxWidth:'45%', padding:'40px 56px 80px', background:t.panelBg, display:'flex', flexDirection:'column' }}>
+      <div style={{ flex:'0 0 45%', maxWidth:'45%', padding:'16px 56px 80px', background:t.panelBg, display:'flex', flexDirection:'column' }}>
 
         {/* Logo */}
-        <div style={{ marginBottom:'56px' }}>
-          <span style={{ fontSize:'20px', fontWeight:'700', letterSpacing:'-0.03em', color:t.text }}>ocode</span>
+        <div style={{ marginBottom:'32px' }}>
+          <span style={{ fontSize:'20px', fontWeight:'500', letterSpacing:'-0.03em', color:t.text, fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>ocode</span>
         </div>
 
         {/* Title */}
-        <h1 style={{ fontSize:'48px', fontWeight:'800', lineHeight:'1.05', letterSpacing:'-0.03em', color:t.text, margin:'0 0 16px' }}>
+        <h1 style={{ fontSize:'48px', fontWeight:'700', lineHeight:'1.0', letterSpacing:'-0.03em', color:t.text, margin:'0 0 16px', fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
           Dual Layer<br/>Imigongo<br/>Code
         </h1>
         <p style={{ fontSize:'15px', color:t.textMuted, margin:'0 0 48px', lineHeight:'1.5' }}>
@@ -291,7 +292,7 @@ const DualLayerCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }
               padding:'10px 0', marginRight:'28px', background:'transparent', border:'none',
               borderBottom: activeTab===key ? `2px solid ${t.tabActive}` : '2px solid transparent',
               color: activeTab===key ? t.tabActive : t.tabInactive,
-              fontSize:'13px', fontWeight:'600', letterSpacing:'0.04em',
+              fontSize:'13px', fontWeight:'500', letterSpacing:'0.04em',
               cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s',
             }}>{label}</button>
           ))}
@@ -349,15 +350,22 @@ const DualLayerCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }
               <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>01</span>
               <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.stepLabel }}>UPLOAD IMAGE</span>
             </div>
-            <div onClick={()=>fileInputRef.current?.click()} style={{
-              border:`2px dashed ${t.uploadBorder}`, borderRadius:'8px', padding:'48px 24px',
+            <div onClick={()=>fileInputRef.current?.click()}
+              onDragOver={e=>{ e.preventDefault(); setIsDragOver(true); }}
+              onDragLeave={()=>setIsDragOver(false)}
+              onDrop={e=>{ e.preventDefault(); setIsDragOver(false); const file=e.dataTransfer.files[0]; if(file&&file.type.startsWith('image/')) handleFileUpload({target:{files:[file],value:''}});}}
+              style={{
+              border:`2px dashed ${isDragOver?(darkMode?'#ffffff':'#000000'):t.uploadBorder}`, borderRadius:'8px', padding:'48px 24px',
               display:'flex', flexDirection:'column', alignItems:'center',
-              cursor:'pointer', background:t.inputBg, marginBottom:'24px', textAlign:'center',
+              cursor:'pointer', background:isDragOver?(darkMode?'#1f1f1f':'#f0f0f0'):t.inputBg,
+              marginBottom:'24px', textAlign:'center', transition:'border-color 0.15s, background 0.15s',
             }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="1.5" style={{ marginBottom:'12px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={isDragOver?(darkMode?'#ffffff':'#000000'):t.textDim} strokeWidth="1.5" style={{ marginBottom:'12px' }}>
                 <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
               </svg>
-              <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>Click to upload image</p>
+              <p style={{ margin:'0 0 4px', fontSize:'13px', fontWeight:'600', color:t.text }}>
+                {isDragOver ? 'Drop image here' : 'Click or drag & drop image'}
+              </p>
               <p style={{ margin:0, fontSize:'12px', color:t.textDim }}>PNG, JPG, WEBP</p>
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display:'none' }}/>
@@ -404,13 +412,13 @@ const DualLayerCode = ({ darkMode, onDarkModeToggle, mode, onModeChange, modes }
       </div>
 
       {/* ── RIGHT PANEL ── */}
-      <div style={{ flex:'1', background:t.rightBg, display:'flex', flexDirection:'column', padding:'40px 56px 80px', borderLeft:`1px solid ${t.border}` }}>
+      <div style={{ flex:'1', background:t.rightBg, display:'flex', flexDirection:'column', padding:'16px 56px 80px', borderLeft:`1px solid ${t.border}` }}>
 
         {/* Section label */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'28px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', marginTop:'4px' }}>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.sectionNum }}>02</span>
-            <span style={{ fontSize:'11px', fontWeight:'700', letterSpacing:'0.1em', color:t.previewLabel }}>LIVE PREVIEW</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.sectionNum }}>02</span>
+            <span style={{ fontSize:'11px', fontWeight:'400', letterSpacing:'0.1em', color:t.previewLabel }}>LIVE PREVIEW</span>
           </div>
           {/* Nav controls */}
           <NavBar mode={mode} onModeChange={onModeChange} modes={modes} darkMode={darkMode} onDarkModeToggle={onDarkModeToggle} />
