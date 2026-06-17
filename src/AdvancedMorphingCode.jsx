@@ -963,20 +963,48 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
   const wrapFileUpload = (e) => {
     const file = e.target.files[0]; if (!file) return;
     setIsDecoding(true); setDecodedText(''); setDecodeError(''); setDecodeInfo(null);
+    
+    console.log('📁 File upload started');
+    console.log('File name:', file.name);
+    console.log('File type:', file.type);
+    console.log('File size:', file.size, 'bytes');
+    
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
+        console.log('🖼️ Image loaded');
+        console.log('Image dimensions:', img.width, 'x', img.height);
+        console.log('Expected dimensions: 3000 x 3000');
+        
+        if (img.width !== 3000 || img.height !== 3000) {
+          console.warn('⚠️ IMAGE SIZE MISMATCH!');
+          console.warn('Image should be 3000x3000 but is', img.width, 'x', img.height);
+        }
+        
         const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
         const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
         try {
           const result = decodeLayer(ctx, img.width, img.height);
           setDecodedText(result.text);
           setDecodeInfo({ chars: result.text.length, scanCount: result.scanCount, shape: result.shape });
-        } catch (err) { setDecodeError(err.message); }
+        } catch (err) { 
+          console.error('❌ Decode exception:', err);
+          setDecodeError(err.message); 
+        }
+        setIsDecoding(false);
+      };
+      img.onerror = () => {
+        console.error('❌ Failed to load image');
+        setDecodeError('Failed to load image file');
         setIsDecoding(false);
       };
       img.src = ev.target.result;
+    };
+    reader.onerror = () => {
+      console.error('❌ Failed to read file');
+      setDecodeError('Failed to read file');
+      setIsDecoding(false);
     };
     reader.readAsDataURL(file); e.target.value = '';
   };
