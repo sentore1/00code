@@ -488,7 +488,7 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     
     // ADAPTIVE RING ALLOCATION - Start from center and grow outward
     const { rings, innerRadius, outerRadius } = CONFIG;
-    const ringWidth = (outerRadius - innerRadius) / rings;
+    const standardRingWidth = (outerRadius - innerRadius) / rings;
     
     // Calculate how many rings we actually need (starting from INNER rings)
     let bitsNeeded = fullBinary.length;
@@ -497,9 +497,9 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     
     // Count from INNER to OUTER (ring 0 = innermost)
     for (let ring = 0; ring < rings; ring++) {
-      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const r = innerRadius + ring * standardRingWidth + standardRingWidth / 2;
       const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.8;
+      const shapeSize = standardRingWidth * 0.8;
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       
       if (totalCapacity < bitsNeeded) {
@@ -513,12 +513,24 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     // Ensure minimum of 10 rings for visibility
     ringsUsed = Math.max(10, ringsUsed);
     
-    // Recalculate capacity for the rings we're actually using (from inner outward)
+    // ADAPTIVE SIZING: Use available space efficiently
+    // If using fewer rings, make them BIGGER to fill more space
+    const availableSpace = outerRadius - innerRadius;
+    const adaptiveRingWidth = availableSpace / ringsUsed; // Bigger rings when fewer used!
+    const adaptiveOuterRadius = innerRadius + (ringsUsed * adaptiveRingWidth);
+    
+    console.log('Ring sizing:');
+    console.log('- Standard ring width (150 rings):', standardRingWidth.toFixed(2), 'px');
+    console.log('- Adaptive ring width (' + ringsUsed + ' rings):', adaptiveRingWidth.toFixed(2), 'px');
+    console.log('- Size increase:', (adaptiveRingWidth / standardRingWidth).toFixed(1) + 'x');
+    console.log('- Adaptive outer radius:', adaptiveOuterRadius.toFixed(1), 'px');
+    
+    // Recalculate capacity with adaptive sizing
     totalCapacity = 0;
     for (let ring = 0; ring < ringsUsed; ring++) {
-      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const r = innerRadius + ring * adaptiveRingWidth + adaptiveRingWidth / 2;
       const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.8;
+      const shapeSize = adaptiveRingWidth * 0.8;
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       totalCapacity += numShapes;
     }
@@ -537,7 +549,7 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     console.log('Pattern bits:', patternBits);
     console.log('Scan count bits:', scanCountBits);
     console.log('Rings used:', ringsUsed, '/', rings);
-    console.log('Total capacity:', totalCapacity);
+    console.log('Adaptive capacity:', totalCapacity);
     console.log('Total bits:', fullBinary.length);
     console.log('First 100 bits:', fullBinary.substring(0, 100));
     
@@ -551,13 +563,14 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.arc(center, center, 130, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw encoded data - START FROM INNER RINGS and grow outward
+    // Draw encoded data - START FROM INNER RINGS with ADAPTIVE sizing
     let bitIndex = 0;
     
     for (let ring = 0; ring < ringsUsed && bitIndex < fullBinary.length; ring++) {
-      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const r = innerRadius + ring * adaptiveRingWidth + adaptiveRingWidth / 2;
       const circumference = 2 * Math.PI * r;
-      const shapeSize = ringWidth * 0.8;
+      const shapeSize = adaptiveRingWidth * 0.8; // BIGGER shapes!
+      const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       
       for (let i = 0; i < numShapes && bitIndex < fullBinary.length; i++) {
@@ -577,7 +590,8 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 15;
     ctx.beginPath();
-    ctx.arc(center, center, 960, 0, Math.PI * 2);
+    // Draw border at adaptive outer radius (not fixed 960px)
+    ctx.arc(center, center, adaptiveOuterRadius + 10, 0, Math.PI * 2);
     ctx.stroke();
     
     // Add metadata text showing rings used
@@ -586,11 +600,12 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.textAlign = 'center';
     ctx.fillText(`Scan #${scanCount} | ${morphShape}`, center, canvasSize - 60);
     
-    // Show ring usage percentage - data grows from CENTER outward
+    // Show ring usage and size increase
     const usagePercent = Math.round((ringsUsed / rings) * 100);
+    const sizeIncrease = (adaptiveRingWidth / standardRingWidth).toFixed(1);
     ctx.font = '18px Inter, Arial, sans-serif';
     ctx.fillStyle = usagePercent < 30 ? '#22c55e' : usagePercent < 70 ? '#3b82f6' : '#f59e0b';
-    ctx.fillText(`${ringsUsed}/${rings} rings (${usagePercent}% • grows from center)`, center, canvasSize - 30);
+    ctx.fillText(`${ringsUsed}/${rings} rings (${sizeIncrease}× bigger shapes!)`, center, canvasSize - 30);
     
     console.log('Encoded successfully');
     setIsGenerated(true);
