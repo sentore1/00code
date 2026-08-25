@@ -571,7 +571,6 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
       const circumference = 2 * Math.PI * r;
       const shapeSize = adaptiveRingWidth * 0.8; // BIGGER shapes!
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
-      const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       
       for (let i = 0; i < numShapes && bitIndex < fullBinary.length; i++) {
         const angle = (i / numShapes) * Math.PI * 2;
