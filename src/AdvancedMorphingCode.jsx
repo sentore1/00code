@@ -486,9 +486,13 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     // Full binary: 48 bits (length) + 3 bits (shape) + 8 bits (scan) + data
     let fullBinary = lengthBitsRedundant + patternBits + scanCountBits + binary;
     
-    // Calculate total capacity and add padding to fill all space
+    // ADAPTIVE RING ALLOCATION - Only use rings needed for data
     const { rings, innerRadius, outerRadius } = CONFIG;
     const ringWidth = (outerRadius - innerRadius) / rings;
+    
+    // Calculate how many rings we actually need
+    let bitsNeeded = fullBinary.length;
+    let ringsUsed = 0;
     let totalCapacity = 0;
     
     for (let ring = rings - 1; ring >= 0; ring--) {
@@ -496,10 +500,29 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
       const numShapes = Math.floor(circumference / (shapeSize * 1.1));
+      
+      if (totalCapacity < bitsNeeded) {
+        totalCapacity += numShapes;
+        ringsUsed++;
+      } else {
+        break;
+      }
+    }
+    
+    // Ensure minimum of 10 rings for visibility
+    ringsUsed = Math.max(10, ringsUsed);
+    
+    // Recalculate capacity for the rings we're actually using
+    totalCapacity = 0;
+    for (let ring = rings - 1; ring >= rings - ringsUsed; ring--) {
+      const r = innerRadius + ring * ringWidth + ringWidth / 2;
+      const circumference = 2 * Math.PI * r;
+      const shapeSize = ringWidth * 0.8;
+      const numShapes = Math.floor(circumference / (shapeSize * 1.1));
       totalCapacity += numShapes;
     }
     
-    // Add alternating padding to fill remaining space
+    // Add alternating padding only to fill the rings we're using
     if (fullBinary.length < totalCapacity) {
       const paddingNeeded = totalCapacity - fullBinary.length;
       console.log('Adding padding:', paddingNeeded, 'bits');
@@ -512,6 +535,7 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     console.log('Length bits (redundant):', lengthBitsRedundant);
     console.log('Pattern bits:', patternBits);
     console.log('Scan count bits:', scanCountBits);
+    console.log('Rings used:', ringsUsed, '/', rings);
     console.log('Total capacity:', totalCapacity);
     console.log('Total bits:', fullBinary.length);
     console.log('First 100 bits:', fullBinary.substring(0, 100));
@@ -526,10 +550,10 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.arc(center, center, 130, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw encoded data (rings, innerRadius, outerRadius, ringWidth already declared above)
+    // Draw encoded data - only draw the rings we're using
     let bitIndex = 0;
     
-    for (let ring = rings - 1; ring >= 0 && bitIndex < fullBinary.length; ring--) {
+    for (let ring = rings - 1; ring >= rings - ringsUsed && bitIndex < fullBinary.length; ring--) {
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
@@ -555,11 +579,17 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.arc(center, center, 960, 0, Math.PI * 2);
     ctx.stroke();
     
-    // Add metadata text
+    // Add metadata text showing rings used
     ctx.fillStyle = '#333333';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`Scan #${scanCount} | Shape: ${morphShape}`, center, canvasSize - 30);
+    ctx.fillText(`Scan #${scanCount} | ${morphShape}`, center, canvasSize - 60);
+    
+    // Show ring usage percentage
+    const usagePercent = Math.round((ringsUsed / rings) * 100);
+    ctx.font = '18px Inter, Arial, sans-serif';
+    ctx.fillStyle = usagePercent < 30 ? '#22c55e' : usagePercent < 70 ? '#3b82f6' : '#f59e0b';
+    ctx.fillText(`${ringsUsed}/${rings} rings (${usagePercent}% capacity)`, center, canvasSize - 30);
     
     console.log('Encoded successfully');
     setIsGenerated(true);
@@ -1010,7 +1040,7 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
   };
 
   return (
-    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div style={{ fontFamily: "'Calibri', 'Carlito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       {/* Tabs */}
       <div style={{ display:'flex', borderBottom:`1px solid ${t.tabBorder}`, marginBottom:'32px' }}>
         {[['encode','ENCODE'],['decode','DECODE IMAGE']].map(([key,label]) => (
@@ -1037,8 +1067,18 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
               background:t.inputBg, color:t.inputText, border:`1px solid ${t.inputBorder}`,
               borderRadius:'8px', resize:'vertical', outline:'none', fontFamily:'inherit', boxSizing:'border-box' }}
           />
-          <div style={{ textAlign:'right', fontSize:'12px', color:t.textDim, margin:'6px 0 24px' }}>
-            {inputText.length} / 30,000 characters
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'12px', margin:'6px 0 24px' }}>
+            <span style={{ color:t.textDim }}>
+              {inputText.length} / 30,000 characters
+            </span>
+            {inputText.length > 0 && (
+              <span style={{ 
+                color: inputText.length < 1000 ? '#22c55e' : inputText.length < 10000 ? '#3b82f6' : '#f59e0b',
+                fontWeight: '500'
+              }}>
+                ~{Math.max(10, Math.ceil((inputText.length * 8 + 59) / 432))} rings needed
+              </span>
+            )}
           </div>
           <canvas ref={canvasRef} style={{ display:'none' }} />
           <button onClick={wrapEncode} disabled={!inputText||isGenerating} style={{

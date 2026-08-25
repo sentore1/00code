@@ -34,7 +34,7 @@ export const NavBar = ({ mode, onModeChange, darkMode, onDarkModeToggle }) => {
           borderRadius: '10px', fontSize: '13px', fontWeight: '500', cursor: 'pointer',
           outline: 'none', minWidth: '140px', justifyContent: 'space-between',
           boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          fontFamily: "'Calibri', 'Carlito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         }}>
           <span>{current}</span>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
@@ -55,7 +55,7 @@ export const NavBar = ({ mode, onModeChange, darkMode, onDarkModeToggle }) => {
                   border: 'none', outline: 'none', cursor: 'pointer',
                   background: m.value === mode ? '#f4f4f4' : '#fff',
                   color: '#111', fontSize: '13px', fontWeight: m.value === mode ? '500' : '400',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                  fontFamily: "'Calibri', 'Carlito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#f4f4f4'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = m.value === mode ? '#f4f4f4' : '#fff'; }}
@@ -90,7 +90,7 @@ export const NavBar = ({ mode, onModeChange, darkMode, onDarkModeToggle }) => {
 
 function App() {
   const [darkMode, setDarkMode] = useState(false);
-  const [mode, setMode]         = useState('morphing');
+  const [mode, setMode]         = useState('advanced'); // Changed to match Flutter app
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewLabel, setPreviewLabel] = useState('');
   const [rightActions, setRightActions] = useState(null); // {download, simulateScan?, scanCount?, isGenerated}
@@ -141,7 +141,7 @@ function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: t.bg,
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      fontFamily: "'Calibri', 'Carlito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
       {/* ── LEFT PANEL ── */}
       <div style={{ flex: '0 0 45%', maxWidth: '45%', background: t.bg,
@@ -158,7 +158,7 @@ function App() {
         <div style={{ padding: '24px 56px 0' }}>
           <h1 style={{ fontSize: '56px', fontWeight: '700', lineHeight: '1.0',
             letterSpacing: '-0.03em', color: t.text, margin: '0 0 16px',
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+            fontFamily: "'Calibri', 'Carlito', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
             {info.title}
           </h1>
           <p style={{ fontSize: '15px', color: t.textMuted, margin: '0 0 56px', lineHeight: '1.5' }}>
