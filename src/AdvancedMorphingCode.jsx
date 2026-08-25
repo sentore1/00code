@@ -486,16 +486,17 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     // Full binary: 48 bits (length) + 3 bits (shape) + 8 bits (scan) + data
     let fullBinary = lengthBitsRedundant + patternBits + scanCountBits + binary;
     
-    // ADAPTIVE RING ALLOCATION - Only use rings needed for data
+    // ADAPTIVE RING ALLOCATION - Start from center and grow outward
     const { rings, innerRadius, outerRadius } = CONFIG;
     const ringWidth = (outerRadius - innerRadius) / rings;
     
-    // Calculate how many rings we actually need
+    // Calculate how many rings we actually need (starting from INNER rings)
     let bitsNeeded = fullBinary.length;
     let ringsUsed = 0;
     let totalCapacity = 0;
     
-    for (let ring = rings - 1; ring >= 0; ring--) {
+    // Count from INNER to OUTER (ring 0 = innermost)
+    for (let ring = 0; ring < rings; ring++) {
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
@@ -512,9 +513,9 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     // Ensure minimum of 10 rings for visibility
     ringsUsed = Math.max(10, ringsUsed);
     
-    // Recalculate capacity for the rings we're actually using
+    // Recalculate capacity for the rings we're actually using (from inner outward)
     totalCapacity = 0;
-    for (let ring = rings - 1; ring >= rings - ringsUsed; ring--) {
+    for (let ring = 0; ring < ringsUsed; ring++) {
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
@@ -550,10 +551,10 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.arc(center, center, 130, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw encoded data - only draw the rings we're using
+    // Draw encoded data - START FROM INNER RINGS and grow outward
     let bitIndex = 0;
     
-    for (let ring = rings - 1; ring >= rings - ringsUsed && bitIndex < fullBinary.length; ring--) {
+    for (let ring = 0; ring < ringsUsed && bitIndex < fullBinary.length; ring++) {
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
@@ -585,11 +586,11 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     ctx.textAlign = 'center';
     ctx.fillText(`Scan #${scanCount} | ${morphShape}`, center, canvasSize - 60);
     
-    // Show ring usage percentage
+    // Show ring usage percentage - data grows from CENTER outward
     const usagePercent = Math.round((ringsUsed / rings) * 100);
     ctx.font = '18px Inter, Arial, sans-serif';
     ctx.fillStyle = usagePercent < 30 ? '#22c55e' : usagePercent < 70 ? '#3b82f6' : '#f59e0b';
-    ctx.fillText(`${ringsUsed}/${rings} rings (${usagePercent}% capacity)`, center, canvasSize - 30);
+    ctx.fillText(`${ringsUsed}/${rings} rings (${usagePercent}% • grows from center)`, center, canvasSize - 30);
     
     console.log('Encoded successfully');
     setIsGenerated(true);
@@ -669,7 +670,7 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     
     // First, calculate total expected capacity using UNSCALED values (same as encoder)
     let totalExpectedBits = 0;
-    for (let ring = rings - 1; ring >= 0; ring--) {
+    for (let ring = 0; ring < rings; ring++) { // Changed: inner to outer
       const r = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r;
       const shapeSize = ringWidth * 0.8;
@@ -705,7 +706,8 @@ const AdvancedMorphingCode = ({ onPreviewReady, onActionsReady }) => {
     let actualShapeCount = 0;
     
     // CRITICAL: Use UNSCALED values for shape count calculation (matching encoder)
-    for (let ring = rings - 1; ring >= 0; ring--) {
+    // Changed: Read from INNER to OUTER (ring 0 = innermost)
+    for (let ring = 0; ring < rings; ring++) {
       // Use unscaled radius for shape calculation
       const r_unscaled = innerRadius + ring * ringWidth + ringWidth / 2;
       const circumference = 2 * Math.PI * r_unscaled;
